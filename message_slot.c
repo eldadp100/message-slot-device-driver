@@ -4,6 +4,8 @@
     To remove the module: 
 */
 
+// TODO: don't limit number of channels and minor numbers
+
 #define __KERNEL__
 #define MODULE
 
@@ -15,6 +17,8 @@
 
 MODULE_LICENSE("GPL");
 
+#define DEVICE_RANGE_NAME "message_slot"
+#define DEVICE_FILE_NAME "message_slot"
 #define MAJOR_NUM 240
 #define MAX_MINORS 10
 #define CHANNELS_NUM 8
@@ -136,12 +140,13 @@ int device_ioctal(struct file *_file, unsigned int control_command, unsigned lon
     // set current channel
     if (control_command == 0)
     {
-        channels_t _channels;
+        channels_t *_channels;
         if ((channels = get_channels_obj_of_minor(minors_to_channels)) == NULL)
         {
             printk("minor channels should be initialized\n");
             exit(1);
         }
+        _channels->current_channel = command_parameter;
     }
 }
 
@@ -164,3 +169,58 @@ int device_release()
     free_minors_data(minors_data_t * _minors_data)-- dev_open_flag; // the driver is free to talk with another process
     spin_unlock_irqrestore(&device_lock, flags);
 }
+
+//==================== DEVICE SETUP (as we saw in recitation 6 chardev 1) =============================
+
+struct file_operations Fops = {
+    .owner = THIS_MODULE,
+    .read = device_read,
+    .write = device_write,
+    .open = device_open,
+    .release = device_release,
+};
+
+// Initialize the module - Register the character device
+static int __init simple_init(void)
+{
+    // init dev struct
+    memset(&device_info, 0, sizeof(struct chardev_info));
+    spin_lock_init(&device_lock);
+
+    // Register driver capabilities. Obtain major num
+    major = register_chrdev(0, DEVICE_RANGE_NAME, &Fops);
+
+    // Negative values signify an error
+    if (major < 0)
+    {
+        printk(KERN_ALERT "%s registraion failed for  %d\n",
+               DEVICE_FILE_NAME, major);
+        return major;
+    }
+
+    printk("Registeration is successful. "
+           "The major device number is %d.\n",
+           major);
+    printk("If you want to talk to the device driver,\n");
+    printk("you have to create a device file:\n");
+    printk("mknod /dev/%s c %d 0\n", DEVICE_FILE_NAME, major);
+    printk("You can echo/cat to/from the device file.\n");
+    printk("Dont forget to rm the device file and "
+           "rmmod when you're done\n");
+
+    return 0;
+}
+
+//---------------------------------------------------------------
+static void __exit simple_cleanup(void)
+{
+    // Unregister the device
+    // Should always succeed
+    unregister_chrdev(major, DEVICE_RANGE_NAME);
+}
+
+//---------------------------------------------------------------
+module_init(simple_init);
+module_exit(simple_cleanup);
+
+//========================= END OF FILE =========================
