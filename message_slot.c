@@ -41,7 +41,8 @@ typedef struct simple_dict
 
 simple_dict_t *create_simple_dict(int max_number_of_keys, int sizeof_value)
 {
-    simple_dict_t *dict = vmalloc(sizeof(simple_dict_t));
+    simple_dict_t *dict;
+    dict = vmalloc(sizeof(simple_dict_t));
     dict->entries = vmalloc(max_number_of_keys * sizeof(int) + sizeof_value);
     dict->current_entry_index = 0;
     dict->max_etries = max_number_of_keys;
@@ -80,7 +81,8 @@ typedef struct channels
 channels_t *create_new_channel(void)
 {
     int i;
-    channels_t *new_channels = vmalloc(sizeof(channels_t));
+    channels_t *new_channels;
+    new_channels = vmalloc(sizeof(channels_t));
     new_channels->messages = vmalloc(CHANNELS_NUM * sizeof(char *));
     for (i = 0; i < CHANNELS_NUM; i++)
     {
@@ -110,7 +112,8 @@ channels_t *get_channels_obj_of_minor(int minor_num)
 
 void add_minor(int minor_num)
 {
-    channels_t *new_channel = create_new_channel();
+    channels_t *new_channel;
+    new_channel = create_new_channel();
     set_value(minors_to_channels, minor_num, new_channel);
 }
 
@@ -119,6 +122,7 @@ static int dev_open_flag = 0; // we want to talk to one process only at a time
 
 int device_open(struct inode *_inode, struct file *_file)
 {
+    int minor_number;
     unsigned long flags = 0;
     spin_lock_irqsave(&device_lock, flags);
     if (dev_open_flag == 1)
@@ -128,8 +132,8 @@ int device_open(struct inode *_inode, struct file *_file)
         return -EBUSY;
     }
 
-    int minor_number = iminor(_inode);
-    _file->private_data = minor_number;
+    minor_number = iminor(_inode);
+    *_file->private_data = minor_number;
     // check if we initialized a data structure for that mnior. otherwise initialize one.
     if (minors_to_channels == NULL)
     {
@@ -146,11 +150,12 @@ int device_open(struct inode *_inode, struct file *_file)
 
 int device_ioctal(struct file *_file, unsigned int control_command, unsigned long command_parameter)
 {
-    int minor_number = _file->private_data;
+    channels_t *_channels;
+    int minor_number;
+    minor_number = (int)(*_file->private_data);
     // set current channel
     if (control_command == 0)
     {
-        channels_t *_channels;
         if ((_channels = get_channels_obj_of_minor(minor_number)) == NULL)
         {
             printk("minor channels should be initialized\n");
@@ -163,11 +168,11 @@ int device_ioctal(struct file *_file, unsigned int control_command, unsigned lon
 
 int device_read(struct file *_file, char *buff, size_t buff_size, loff_t *file_offset)
 {
+    channels_t *_channels;
     int i, minor_number;
     char *msg;
-    minor_number = _file->private_data;
+    minor_number = (int)(*_file->private_data);
     // set current channel
-    channels_t *_channels;
     if ((_channels = get_channels_obj_of_minor(minor_number)) == NULL)
     {
         printk(KERN_ERR "minor channels should be initialized\n");
@@ -185,10 +190,11 @@ int device_read(struct file *_file, char *buff, size_t buff_size, loff_t *file_o
 int device_write(struct file *_file, char *buff, size_t buff_size, loff_t *file_offset)
 {
     int i, minor_number;
-    char *msg = vmalloc(buff_size);
-    minor_number = _file->private_data;
-    // set current channel
     channels_t *_channels;
+    char *msg;
+    minor_number = (int)(*_file->private_data);
+    msg = vmalloc(buff_size);
+    // set current channel
     if ((_channels = get_channels_obj_of_minor(minor_number)) == NULL)
     {
         printk(KERN_ERR "minor channels should be initialized\n");
