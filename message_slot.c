@@ -120,7 +120,7 @@ void add_minor(int minor_num)
 static spinlock_t device_lock;
 static int dev_open_flag = 0; // we want to talk to one process only at a time
 
-int device_open(struct inode *_inode, struct file *_file)
+static int device_open(struct inode *_inode, struct file *_file)
 {
     int minor_number;
     unsigned long flags = 0;
@@ -133,7 +133,7 @@ int device_open(struct inode *_inode, struct file *_file)
     }
 
     minor_number = iminor(_inode);
-    *_file->private_data = minor_number;
+    _file->private_data = &minor_number;
     // check if we initialized a data structure for that mnior. otherwise initialize one.
     if (minors_to_channels == NULL)
     {
@@ -148,11 +148,12 @@ int device_open(struct inode *_inode, struct file *_file)
     return 0;
 }
 
-int device_ioctal(struct file *_file, unsigned int control_command, unsigned long command_parameter)
+static long  device_ioctal(struct file *_file, unsigned int control_command, unsigned long command_parameter)
 {
     channels_t *_channels;
-    int minor_number;
-    minor_number = (int)(*_file->private_data);
+    int *minor_number_ptr, minor_number;
+    minor_number_ptr = (int*)(_file->private_data);
+    minor_number = *minor_number_ptr;
     // set current channel
     if (control_command == 0)
     {
@@ -166,12 +167,13 @@ int device_ioctal(struct file *_file, unsigned int control_command, unsigned lon
     return 0;
 }
 
-int device_read(struct file *_file, char *buff, size_t buff_size, loff_t *file_offset)
+static ssize_t device_read(struct file *_file, char *buff, size_t buff_size, loff_t *file_offset)
 {
     channels_t *_channels;
-    int i, minor_number;
     char *msg;
-    minor_number = (int)(*_file->private_data);
+    int *minor_number_ptr, minor_number, i;
+    minor_number_ptr = (int*)(_file->private_data);
+    minor_number = *minor_number_ptr;
     // set current channel
     if ((_channels = get_channels_obj_of_minor(minor_number)) == NULL)
     {
@@ -187,12 +189,13 @@ int device_read(struct file *_file, char *buff, size_t buff_size, loff_t *file_o
     return 0;
 }
 
-int device_write(struct file *_file, char *buff, size_t buff_size, loff_t *file_offset)
+static ssize_t device_write(struct file *_file, char *buff, size_t buff_size, loff_t *file_offset)
 {
-    int i, minor_number;
     channels_t *_channels;
     char *msg;
-    minor_number = (int)(*_file->private_data);
+    int *minor_number_ptr, minor_number, i;
+    minor_number_ptr = (int*)(_file->private_data);
+    minor_number = *minor_number_ptr;
     msg = vmalloc(buff_size);
     // set current channel
     if ((_channels = get_channels_obj_of_minor(minor_number)) == NULL)
@@ -228,7 +231,7 @@ void free_minors_data(simple_dict_t *dict)
     kfree(dict);
 }
 
-int device_release()
+static int device_release(void)
 {
     unsigned long flags = 0;
     spin_lock_irqsave(&device_lock, flags);
@@ -251,27 +254,27 @@ struct file_operations Fops = {
 // Initialize the module - Register the character device
 static int __init simple_init(void)
 {
+    int registration_ret;
     // init dev struct
-    memset(&device_info, 0, sizeof(struct chardev_info));
+    memset(&device_lock, 0, sizeof(device_lock));
     spin_lock_init(&device_lock);
 
-    // Register driver capabilities. Obtain major num
-    major = register_chrdev(0, DEVICE_RANGE_NAME, &Fops);
+    // Register driver.
+    registration_ret = register_chrdev(MAJOR_NUM, DEVICE_RANGE_NAME, &Fops);
 
     // Negative values signify an error
-    if (major < 0)
+    if (registration_ret < 0)
     {
         printk(KERN_ALERT "%s registraion failed for  %d\n",
-               DEVICE_FILE_NAME, major);
-        return major;
+               DEVICE_FILE_NAME, MAJOR_NUM);
+        return MAJOR_NUM;
     }
 
     printk("Registeration is successful. "
-           "The major device number is %d.\n",
-           major);
+           "The major device number is %d.\n", MAJOR_NUM);
     printk("If you want to talk to the device driver,\n");
     printk("you have to create a device file:\n");
-    printk("mknod /dev/%s c %d 0\n", DEVICE_FILE_NAME, major);
+    printk("mknod /dev/%s c %d 0\n", DEVICE_FILE_NAME, MAJOR_NUM);
     printk("You can echo/cat to/from the device file.\n");
     printk("Dont forget to rm the device file and "
            "rmmod when you're done\n");
@@ -283,7 +286,7 @@ static void __exit simple_cleanup(void)
 {
     // Unregister the device
     // Should always succeed
-    unregister_chrdev(major, DEVICE_RANGE_NAME);
+    unregister_chrdev(MAJOR_NUM, DEVICE_RANGE_NAME);
 }
 
 module_init(simple_init);
