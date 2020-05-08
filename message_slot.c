@@ -249,6 +249,7 @@ struct file_operations Fops = {
     .write = device_write,
     .open = device_open,
     .release = device_release,
+    .ioctal = device_ioctal,
 };
 
 // Initialize the module - Register the character device
