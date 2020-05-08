@@ -97,8 +97,9 @@ void initialize_minor_to_channels(int number_of_minors)
     minors_to_channels = create_simple_dict(number_of_minors, sizeof(channels_t));
 }
 
-channels_t *get_channels_obj_of_minor(int minor_num, channels_t *out)
+channels_t *get_channels_obj_of_minor(int minor_num)
 {
+
     if (minors_to_channels == NULL)
     {
         printk(KERN_ERR "minors_to_channels object is not initialized\n");
@@ -150,7 +151,7 @@ int device_ioctal(struct file *_file, unsigned int control_command, unsigned lon
     if (control_command == 0)
     {
         channels_t *_channels;
-        if ((channels = get_channels_obj_of_minor(minors_to_channels)) == NULL)
+        if ((_channels = get_channels_obj_of_minor(minor_number)) == NULL)
         {
             printk("minor channels should be initialized\n");
             //exit(1);
@@ -167,7 +168,7 @@ int device_read(struct file *_file, char *buff, size_t buff_size, loff_t *file_o
     minor_number = _file->private_data;
     // set current channel
     channels_t *_channels;
-    if ((channels = get_channels_obj_of_minor(minors_to_channels)) == NULL)
+    if ((_channels = get_channels_obj_of_minor(minor_number)) == NULL)
     {
         printk(KERN_ERR "minor channels should be initialized\n");
         //exit(1);
@@ -188,7 +189,7 @@ int device_write(struct file *_file, char *buff, size_t buff_size, loff_t *file_
     minor_number = _file->private_data;
     // set current channel
     channels_t *_channels;
-    if ((channels = get_channels_obj_of_minor(minors_to_channels)) == NULL)
+    if ((_channels = get_channels_obj_of_minor(minor_number)) == NULL)
     {
         printk(KERN_ERR "minor channels should be initialized\n");
         //exit(1);
@@ -202,7 +203,7 @@ int device_write(struct file *_file, char *buff, size_t buff_size, loff_t *file_
     return 0;
 }
 
-void free_channels(channels_t _channels)
+void free_channels(channels_t *_channels)
 {
     int i;
     for (i = 0; i < CHANNELS_NUM; i++)
