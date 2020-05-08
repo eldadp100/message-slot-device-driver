@@ -6,7 +6,9 @@
 
 // TODO: don't limit number of channels and minor numbers
 
+#undef __KERNEL__
 #define __KERNEL__
+#undef MODULE
 #define MODULE
 
 #include <linux/kernel.h>
@@ -57,7 +59,7 @@ void *get_value(simple_dict_t *dict, int key)
     return NULL;
 }
 
-void set_value(simple_dict_t *dict, int key, int value)
+void set_value(simple_dict_t *dict, int key, void *value)
 {
     if (dict->current_entry_index == dict->max_etries - 1)
     {
@@ -75,12 +77,12 @@ typedef struct channels
     char **messages;
 } channels_t;
 
-channels_t create_new_channel(void)
+channels_t *create_new_channel(void)
 {
     int i;
     channels_t *new_channels = vmalloc(sizeof(channels_t));
     new_channels->messages = vmalloc(CHANNELS_NUM * sizeof(char *));
-    for (i=0; i<CHANNELS_NUM; i++)
+    for (i = 0; i < CHANNELS_NUM; i++)
     {
         new_channels->messages[i] = NULL;
     }
@@ -92,7 +94,7 @@ simple_dict_t *minors_to_channels = NULL;
 
 void initialize_minor_to_channels(int number_of_minors)
 {
-    minors_to_channels = create_simple_dict();
+    minors_to_channels = create_simple_dict(number_of_minors, sizeof(channels_t));
 }
 
 channels_t *get_channels_obj_of_minor(int minor_num, channels_t *out)
@@ -102,7 +104,7 @@ channels_t *get_channels_obj_of_minor(int minor_num, channels_t *out)
         printk(KERN_ERR "minors_to_channels object is not initialized\n");
         //exit(1);
     }
-    return (*channels_t)get_value(minors_to_channels, minor_num);
+    return (channels_t*)get_value(minors_to_channels, minor_num);
 }
 
 void add_minor(int minor_num)
@@ -125,7 +127,8 @@ int device_open(struct inode *_inode, struct file *_file)
         return -EBUSY;
     }
 
-    int minor_number = iminor(_file);
+    int minor_number = iminor(_inode);
+    _file->private_data = minor_number;
     // check if we initialized a data structure for that mnior. otherwise initialize one.
     if (minors_to_channels == NULL)
     {
@@ -142,7 +145,7 @@ int device_open(struct inode *_inode, struct file *_file)
 
 int device_ioctal(struct file *_file, unsigned int control_command, unsigned long command_parameter)
 {
-    int minor_number = iminor(_file);
+    int minor_number = _file->private_data;
     // set current channel
     if (control_command == 0)
     {
@@ -161,7 +164,7 @@ int device_read(struct file *_file, char *buff, size_t buff_size, loff_t *file_o
 {
     int i, minor_number;
     char *msg;
-    minor_number = iminor(_file);
+    minor_number = _file->private_data;
     // set current channel
     channels_t *_channels;
     if ((channels = get_channels_obj_of_minor(minors_to_channels)) == NULL)
@@ -182,7 +185,7 @@ int device_write(struct file *_file, char *buff, size_t buff_size, loff_t *file_
 {
     int i, minor_number;
     char *msg = vmalloc(buff_size);
-    minor_number = iminor(_file);
+    minor_number = _file->private_data;
     // set current channel
     channels_t *_channels;
     if ((channels = get_channels_obj_of_minor(minors_to_channels)) == NULL)
@@ -193,31 +196,29 @@ int device_write(struct file *_file, char *buff, size_t buff_size, loff_t *file_
 
     for (i = 0; i < buff_size; i++)
     {
-        get_user(msg[i], &buff[i]); 
+        get_user(msg[i], &buff[i]);
     }
     _channels->messages[_channels->current_channel] = msg;
     return 0;
 }
 
-
 void free_channels(channels_t _channels)
 {
     int i;
-    for (i=0; i<CHANNELS_NUM; i++)
+    for (i = 0; i < CHANNELS_NUM; i++)
     {
-        free(_channels->messages[i]);
-
+        kfree(_channels->messages[i]);
     }
 }
 void free_minors_data(simple_dict_t *dict)
 {
     int i;
-    for (i=0; i<dict->current_entry_index; i++)
+    for (i = 0; i < dict->current_entry_index; i++)
     {
         free_channels(dict->entries[i].val);
-        free(&dict->entries[i]);
+        kfree(&dict->entries[i]);
     }
-    free(dict);
+    kfree(dict);
 }
 
 int device_release()
