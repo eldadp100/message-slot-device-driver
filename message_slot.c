@@ -20,8 +20,7 @@
 
 MODULE_LICENSE("GPL");
 
-#define DEVICE_RANGE_NAME "message_slot"
-#define DEVICE_FILE_NAME "message_slot"
+
 #define MAJOR_NUM 240
 #define MAX_MINORS 10
 #define CHANNELS_NUM 8
