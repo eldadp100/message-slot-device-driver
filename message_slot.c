@@ -148,7 +148,7 @@ static int device_open(struct inode *_inode, struct file *_file)
     return 0;
 }
 
-static long device_ioctal(struct inode * _inode, struct file * _file, unsigned int control_command, unsigned long command_paramters);
+static long device_ioctal(struct inode * _inode, struct file * _file, unsigned int control_command, unsigned long command_paramters)
 {
     channels_t *_channels;
     int *minor_number_ptr, minor_number;
@@ -231,10 +231,10 @@ void free_minors_data(simple_dict_t *dict)
     kfree(dict);
 }
 
-static int device_release(struct inode *, struct file *)
+static int device_release(struct inode *_inode, struct file *_file)
 {
     unsigned long flags = 0;
-    _file->private_data = NULL;
+    // _file->private_data = NULL;
     spin_lock_irqsave(&device_lock, flags);
     free_minors_data(minors_to_channels);
     dev_open_flag--; // the driver is free to talk with another process
