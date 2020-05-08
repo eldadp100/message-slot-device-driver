@@ -148,7 +148,7 @@ static int device_open(struct inode *_inode, struct file *_file)
     return 0;
 }
 
-static long device_ioctal(struct inode * _inode, struct file * _file, unsigned int control_command, unsigned long command_paramters)
+static long device_ioctal(struct file * _file, unsigned int control_command, unsigned long command_paramters)
 {
     channels_t *_channels;
     int *minor_number_ptr, minor_number;
