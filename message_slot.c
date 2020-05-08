@@ -107,7 +107,7 @@ channels_t *get_channels_obj_of_minor(int minor_num)
         printk(KERN_ERR "minors_to_channels object is not initialized\n");
         //exit(1);
     }
-    return (channels_t*)get_value(minors_to_channels, minor_num);
+    return (channels_t *)get_value(minors_to_channels, minor_num);
 }
 
 void add_minor(int minor_num)
@@ -148,11 +148,11 @@ static int device_open(struct inode *_inode, struct file *_file)
     return 0;
 }
 
-static long  device_ioctal(struct file *_file, unsigned int control_command, unsigned long command_parameter)
+static long device_ioctal(struct inode * _inode, struct file * _file, unsigned int control_command, unsigned long command_paramters);
 {
     channels_t *_channels;
     int *minor_number_ptr, minor_number;
-    minor_number_ptr = (int*)(_file->private_data);
+    minor_number_ptr = (int *)(_file->private_data);
     minor_number = *minor_number_ptr;
     // set current channel
     if (control_command == 0)
@@ -162,7 +162,7 @@ static long  device_ioctal(struct file *_file, unsigned int control_command, uns
             printk("minor channels should be initialized\n");
             //exit(1);
         }
-        _channels->current_channel = command_parameter;
+        _channels->current_channel = command_paramters;
     }
     return 0;
 }
@@ -172,7 +172,7 @@ static ssize_t device_read(struct file *_file, char *buff, size_t buff_size, lof
     channels_t *_channels;
     char *msg;
     int *minor_number_ptr, minor_number, i;
-    minor_number_ptr = (int*)(_file->private_data);
+    minor_number_ptr = (int *)(_file->private_data);
     minor_number = *minor_number_ptr;
     // set current channel
     if ((_channels = get_channels_obj_of_minor(minor_number)) == NULL)
@@ -189,12 +189,12 @@ static ssize_t device_read(struct file *_file, char *buff, size_t buff_size, lof
     return 0;
 }
 
-static ssize_t device_write(struct file *_file, char *buff, size_t buff_size, loff_t *file_offset)
+static ssize_t device_write(struct file *_file, const char *buff, size_t buff_size, loff_t *file_offset)
 {
     channels_t *_channels;
     char *msg;
     int *minor_number_ptr, minor_number, i;
-    minor_number_ptr = (int*)(_file->private_data);
+    minor_number_ptr = (int *)(_file->private_data);
     minor_number = *minor_number_ptr;
     msg = vmalloc(buff_size);
     // set current channel
@@ -231,9 +231,10 @@ void free_minors_data(simple_dict_t *dict)
     kfree(dict);
 }
 
-static int device_release(void)
+static int device_release(struct inode *, struct file *)
 {
     unsigned long flags = 0;
+    _file->private_data = NULL;
     spin_lock_irqsave(&device_lock, flags);
     free_minors_data(minors_to_channels);
     dev_open_flag--; // the driver is free to talk with another process
@@ -249,7 +250,7 @@ struct file_operations Fops = {
     .write = device_write,
     .open = device_open,
     .release = device_release,
-    .ioctal = device_ioctal,
+    .ioctl = device_ioctal,
 };
 
 // Initialize the module - Register the character device
@@ -272,7 +273,8 @@ static int __init simple_init(void)
     }
 
     printk("Registeration is successful. "
-           "The major device number is %d.\n", MAJOR_NUM);
+           "The major device number is %d.\n",
+           MAJOR_NUM);
     printk("If you want to talk to the device driver,\n");
     printk("you have to create a device file:\n");
     printk("mknod /dev/%s c %d 0\n", DEVICE_FILE_NAME, MAJOR_NUM);
