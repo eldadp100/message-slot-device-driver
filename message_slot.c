@@ -170,7 +170,7 @@ int device_release()
     spin_unlock_irqrestore(&device_lock, flags);
 }
 
-//==================== DEVICE SETUP (as we saw in recitation 6 chardev 1) =============================
+// DEVICE SETUP (as we saw in recitation 6 chardev 1)
 
 struct file_operations Fops = {
     .owner = THIS_MODULE,
@@ -211,7 +211,6 @@ static int __init simple_init(void)
     return 0;
 }
 
-//---------------------------------------------------------------
 static void __exit simple_cleanup(void)
 {
     // Unregister the device
@@ -219,8 +218,5 @@ static void __exit simple_cleanup(void)
     unregister_chrdev(major, DEVICE_RANGE_NAME);
 }
 
-//---------------------------------------------------------------
 module_init(simple_init);
 module_exit(simple_cleanup);
-
-//========================= END OF FILE =========================
