@@ -14,6 +14,7 @@
 #include <linux/fs.h>
 #include <linux/uaccess.h>
 #include <linux/string.h>
+#include <linux/slab.h>
 
 MODULE_LICENSE("GPL");
 
@@ -47,10 +48,11 @@ simple_dict_t *create_simple_dict(int max_number_of_keys, int sizeof_value)
 
 void *get_value(simple_dict_t *dict, int key)
 {
-    for (int i = 0; i < dict->dict_size; i++)
+    int i;
+    for (i = 0; i < dict->current_entry_index; i++)
     {
-        if (key == dict->keys[i])
-            return &dict->values[i];
+        if (key == dict->entries[i].key)
+            return &dict->entries[i].val;
     }
     return NULL;
 }
@@ -62,20 +64,26 @@ void set_value(simple_dict_t *dict, int key, int value)
         printk(KERN_ERR "simple dict is out of bounds.\n");
         //exit(1);
     }
-    dict->values[key] = value;
-    dict->dict_size++;
+    dict->entries[dict->current_entry_index].key = key;
+    dict->entries[dict->current_entry_index].val = value;
+    dict->current_entry_index++;
 }
 
 typedef struct channels
 {
-    size_t current_channel;
-    char **message_channels;
+    int current_channel;
+    char **messages;
 } channels_t;
 
-channels_t create_new_channel()
+channels_t create_new_channel(void)
 {
+    int i;
     channels_t *new_channels = vmalloc(sizeof(channels_t));
-    new_channels->message_channels = vmalloc(CHANNELS_NUM * sizeof(char *));
+    new_channels->messages = vmalloc(CHANNELS_NUM * sizeof(char *));
+    for (i=0; i<CHANNELS_NUM; i++)
+    {
+        new_channels->messages[i] = NULL;
+    }
     new_channels->current_channel = 0;
     return new_channels;
 }
@@ -149,26 +157,75 @@ int device_ioctal(struct file *_file, unsigned int control_command, unsigned lon
     return 0;
 }
 
-int device_read(struct file *_file, char *buff, size_t *buff_size, loff_t *file_offset)
+int device_read(struct file *_file, char *buff, size_t buff_size, loff_t *file_offset)
 {
+    int i, minor_number;
+    char *msg;
+    minor_number = iminor(_file);
+    // set current channel
+    channels_t *_channels;
+    if ((channels = get_channels_obj_of_minor(minors_to_channels)) == NULL)
+    {
+        printk(KERN_ERR "minor channels should be initialized\n");
+        //exit(1);
+    }
+
+    msg = _channels->messages[_channels->current_channel];
+    for (i = 0; i < buff_size; i++)
+    {
+        put_user(msg[i], &buff[i]);
+    }
     return 0;
 }
 
-int device_write(struct file *_file, char *buff, size_t *buff_size, loff_t *file_offset)
+int device_write(struct file *_file, char *buff, size_t buff_size, loff_t *file_offset)
 {
+    int i, minor_number;
+    char *msg = vmalloc(buff_size);
+    minor_number = iminor(_file);
+    // set current channel
+    channels_t *_channels;
+    if ((channels = get_channels_obj_of_minor(minors_to_channels)) == NULL)
+    {
+        printk(KERN_ERR "minor channels should be initialized\n");
+        //exit(1);
+    }
+
+    for (i = 0; i < buff_size; i++)
+    {
+        get_user(msg[i], &buff[i]); 
+    }
+    _channels->messages[_channels->current_channel] = msg;
     return 0;
 }
 
-void free_minors_data(minors_data_t *_minors_data)
+
+void free_channels(channels_t _channels)
 {
+    int i;
+    for (i=0; i<CHANNELS_NUM; i++)
+    {
+        free(_channels->messages[i]);
+
+    }
+}
+void free_minors_data(simple_dict_t *dict)
+{
+    int i;
+    for (i=0; i<dict->current_entry_index; i++)
+    {
+        free_channels(dict->entries[i].val);
+        free(&dict->entries[i]);
+    }
+    free(dict);
 }
 
 int device_release()
 {
     unsigned long flags = 0;
     spin_lock_irqsave(&device_lock, flags);
-    free_minors_data(minors_data_t * _minors_data)--;
-    dev_open_flag; // the driver is free to talk with another process
+    free_minors_data(minors_to_channels);
+    dev_open_flag--; // the driver is free to talk with another process
     spin_unlock_irqrestore(&device_lock, flags);
     return 0;
 }
