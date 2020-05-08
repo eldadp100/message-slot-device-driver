@@ -250,7 +250,7 @@ struct file_operations Fops = {
     .write = device_write,
     .open = device_open,
     .release = device_release,
-    .ioctl = device_ioctal,
+    .unlocked_ioctl = device_ioctal,
 };
 
 // Initialize the module - Register the character device
