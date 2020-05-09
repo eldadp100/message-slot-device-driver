@@ -47,7 +47,16 @@ simple_dict_t *create_simple_dict(int max_number_of_keys, int sizeof_value)
 {
     simple_dict_t *dict;
     dict = kmalloc(sizeof(simple_dict_t), GFP_KERNEL);
+    if (dict == NULL)
+    {
+        printk(KERN_ERR "memory allocation failer. in create_simple_dict.");
+    }
     dict->entries = kmalloc(max_number_of_keys * sizeof(int) + sizeof_value, GFP_KERNEL);
+    if (dict->entries == NULL)
+    {
+        printk(KERN_ERR "memory allocation failer. in create_simple_dict.");
+    }
+    
     dict->current_entry_index = 0;
     dict->max_etries = max_number_of_keys;
     return dict;
@@ -87,7 +96,15 @@ channels_t *create_new_channel(void)
     int i;
     channels_t *new_channels;
     new_channels = kmalloc(sizeof(channels_t), GFP_KERNEL);
+    if (new_channels == NULL)
+    {
+        printk(KERN_ERR "memory allocation failer. in create_new_channel.");
+    }
     new_channels->messages = kmalloc(CHANNELS_NUM * sizeof(char *), GFP_KERNEL);
+    if (new_channels->messages == NULL)
+    {
+        printk(KERN_ERR "memory allocation failer. in create_new_channel.");
+    }
     for (i = 0; i < CHANNELS_NUM; i++)
     {
         new_channels->messages[i] = NULL;
@@ -201,6 +218,10 @@ static ssize_t device_write(struct file *_file, const char *buff, size_t buff_si
     minor_number_ptr = (int *)(_file->private_data);
     minor_number = *minor_number_ptr;
     msg = kmalloc(buff_size, GFP_KERNEL);
+    if (msg == NULL)
+    {
+        printk(KERN_ERR "memory allocation failer. in device write.");
+    }
     // set current channel
     if ((_channels = get_channels_obj_of_minor(minor_number)) == NULL)
     {
