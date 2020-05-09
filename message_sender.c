@@ -22,8 +22,8 @@ int main(int argc, char **argv)
     }
 
     ret_val = ioctl(file_desc, IOCTL_SET_CHANNEL, argv[2]);
-    ret_val = write(file_desc, "Hello", 5);
-
+    ret_val = write(file_desc, "Hello", 6);
+    printf("message sent");
     close(file_desc);
     return 0;
 }
