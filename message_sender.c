@@ -3,8 +3,10 @@
 */
 #include "message_slot.h"
 #include <stdlib.h>
-#include <sys/stat.h>
 #include <fcntl.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
 
 int main(int argc, char **argv)
 {
@@ -12,7 +14,7 @@ int main(int argc, char **argv)
     int ret_val;
 
 
-    file_desc = open("%s", argv[1], O_RDWR);
+    file_desc = open(argv[1], O_RDWR);
     if (file_desc < 0)
     {
         printf("Can't open");
