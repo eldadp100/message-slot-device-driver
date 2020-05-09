@@ -183,9 +183,9 @@ static ssize_t device_read(struct file *_file, char *buff, size_t buff_size, lof
     msg = _channels->messages[_channels->current_channel];
     for (i = 0; i < buff_size; i++)
     {
-        put_user(msg[i], &buff[i]);
+        put_user(&buff[i], msg[i]);
     }
-    return 0;
+    return buff_size;
 }
 
 static ssize_t device_write(struct file *_file, const char *buff, size_t buff_size, loff_t *file_offset)
