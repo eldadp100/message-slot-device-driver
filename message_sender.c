@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
+#include <string.h>
 
 int main(int argc, char **argv)
 {
@@ -21,8 +22,8 @@ int main(int argc, char **argv)
         exit(-1);
     }
 
-    ret_val = ioctl(file_desc, IOCTL_SET_CHANNEL, argv[2]);
-    ret_val = write(file_desc, "Hello", 6);
+    ret_val = ioctl(file_desc, IOCTL_SET_CHANNEL, argv[3]);
+    ret_val = write(file_desc, argv[2], strlen(argv[2]) + 1);
     printf("message sent");
     close(file_desc);
     return 0;
