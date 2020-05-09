@@ -46,8 +46,8 @@ typedef struct simple_dict
 simple_dict_t *create_simple_dict(int max_number_of_keys, int sizeof_value)
 {
     simple_dict_t *dict;
-    dict = vmalloc(sizeof(simple_dict_t));
-    dict->entries = vmalloc(max_number_of_keys * sizeof(int) + sizeof_value);
+    dict = kmalloc(sizeof(simple_dict_t), GFP_KERNEL);
+    dict->entries = kmalloc(max_number_of_keys * sizeof(int) + sizeof_value, GFP_KERNEL);
     dict->current_entry_index = 0;
     dict->max_etries = max_number_of_keys;
     return dict;
@@ -86,8 +86,8 @@ channels_t *create_new_channel(void)
 {
     int i;
     channels_t *new_channels;
-    new_channels = vmalloc(sizeof(channels_t));
-    new_channels->messages = vmalloc(CHANNELS_NUM * sizeof(char *));
+    new_channels = kmalloc(sizeof(channels_t), GFP_KERNEL);
+    new_channels->messages = kmalloc(CHANNELS_NUM * sizeof(char *), GFP_KERNEL);
     for (i = 0; i < CHANNELS_NUM; i++)
     {
         new_channels->messages[i] = NULL;
@@ -200,7 +200,7 @@ static ssize_t device_write(struct file *_file, const char *buff, size_t buff_si
     int *minor_number_ptr, minor_number, i;
     minor_number_ptr = (int *)(_file->private_data);
     minor_number = *minor_number_ptr;
-    msg = vmalloc(buff_size);
+    msg = kmalloc(buff_size, GFP_KERNEL);
     // set current channel
     if ((_channels = get_channels_obj_of_minor(minor_number)) == NULL)
     {
@@ -240,7 +240,7 @@ static int device_release(struct inode *_inode, struct file *_file)
     unsigned long flags = 0;
     // _file->private_data = NULL;
     spin_lock_irqsave(&device_lock, flags);
-    free_minors_data(minors_to_channels);
+    // free_minors_data(minors_to_channels);
     dev_open_flag--; // the driver is free to talk with another process
     spin_unlock_irqrestore(&device_lock, flags);
     return 0;
