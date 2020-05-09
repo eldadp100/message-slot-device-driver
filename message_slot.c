@@ -17,8 +17,13 @@
 #include <linux/uaccess.h>
 #include <linux/string.h>
 #include <linux/slab.h>
+#include <linux/ioctl.h>
 
 MODULE_LICENSE("GPL");
+
+#define IOCTL_SET_CHANNEL _IOW(MAJOR_NUM, 0, unsigned long)
+#define DEVICE_RANGE_NAME "message_slot"
+#define DEVICE_FILE_NAME "message_slot"
 
 
 #define MAJOR_NUM 240
