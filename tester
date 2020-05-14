@@ -1,0 +1,12 @@
+git pull
+sudo make
+sudo insmod message_slot.ko
+sudo mknod /dev/message_slot c 240 0
+sudo chmod 777 /dev/message_slot
+
+gcc -O3 -std=c11 message_reader.c -o reader.out
+gcc -O3 -std=c11 message_sender.c -o sender.out
+sudo ./sender /dev/message_slot Hello 5
+sudo ./reader /dev/message_slot 5
+sudo rmmod message_slot
+sudo rm /dev/message_slot
