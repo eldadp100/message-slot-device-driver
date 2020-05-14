@@ -29,14 +29,14 @@ typedef struct LinkedList
     int length;
 } LinkedList_t;
 
-void initialize_lst(LinkedList_t **out);
-void add_element(LinkedList_t *, int key, void *val);
-void get_value(LinkedList_t *, int key, void ***out);
-void exist_in_lst(LinkedList_t *, int key);
+// void initialize_lst(LinkedList_t **out);
+// void add_element(LinkedList_t *, int key, void *val);
+// void get_value(LinkedList_t *, int key, void ***out);
+// void exist_in_lst(LinkedList_t *, int key);
 
 void initialize_lst(LinkedList_t **out)
 {
-    *out = kmalloc(sizeof(LinkedList_t));
+    *out = kmalloc(sizeof(LinkedList_t), GFP_KERNEL);
     *out->head = NULL;
     *out->last = NULL;
     *out->length = 0;
@@ -45,7 +45,7 @@ void initialize_lst(LinkedList_t **out)
 void add_element(LinkedList_t *lst, int key, void *val)
 {
     // create new node
-    struct Node *node = kmalloc(sizeof(struct Node *));
+    struct Node *node = kmalloc(sizeof(struct Node *), GFP_KERNEL);
     node->next = NULL;
     node->key = key;
     node->value = val;
@@ -105,7 +105,7 @@ typedef struct channels
 
 channels_t *create_channel(void)
 {
-    channels_t *channel = kmalloc(sizeof(channels_t));
+    channels_t *channel = kmalloc(sizeof(channels_t), GFP_KERNEL);
     initialize_lst(&channel->messages);
     channel->current_idx = 0;
     return channel;
