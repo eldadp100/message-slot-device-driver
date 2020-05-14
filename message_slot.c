@@ -1,16 +1,9 @@
-/*
-    This file implemets the message slot IPC driver.
-    To add (register) the module to the kernel use:
-    To remove the module: 
-*/
-
-// TODO: don't limit number of channels and minor numbers
-
 #undef __KERNEL__
 #define __KERNEL__
 #undef MODULE
 #define MODULE
 
+#include "message_slot.h"
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/fs.h>
@@ -21,130 +14,123 @@
 
 MODULE_LICENSE("GPL");
 
-#define DEVICE_RANGE_NAME "message_slot"
-#define DEVICE_FILE_NAME "message_slot"
-#define IOCTL_SET_CHANNEL _IOW(MAJOR_NUM, 0, unsigned long)
-
-
-#define MAJOR_NUM 240
-#define MAX_MINORS 10
-#define CHANNELS_NUM 8
-
-typedef struct dict_entry
+/*Linked List imlemetation*/
+struct Node
 {
     int key;
-    void *val;
-} dict_entry_t;
+    void *value;
+    struct Node *next;
+};
 
-typedef struct simple_dict
+typedef struct LinkedList
 {
-    int max_etries;
-    int current_entry_index;
-    dict_entry_t *entries;
-} simple_dict_t;
+    struct Node *head;
+    struct Node *last;
+    int length;
+} LinkedList_t;
 
-simple_dict_t *create_simple_dict(int max_number_of_keys, int sizeof_value)
+void initialize_lst(LinkedList_t **out);
+void add_element(LinkedList_t *, int key, void *val);
+void get_value(LinkedList_t *, int key, void ***out);
+void exist_in_lst(LinkedList_t *, int key);
+
+void initialize_lst(LinkedList_t **out)
 {
-    simple_dict_t *dict;
-    dict = kmalloc(sizeof(simple_dict_t), GFP_KERNEL);
-    if (dict == NULL)
-    {
-        printk(KERN_ERR "memory allocation failer. in create_simple_dict.");
-    }
-    dict->entries = kmalloc(max_number_of_keys * sizeof(int) + sizeof_value, GFP_KERNEL);
-    if (dict->entries == NULL)
-    {
-        printk(KERN_ERR "memory allocation failer. in create_simple_dict.");
-    }
-    
-    dict->current_entry_index = 0;
-    dict->max_etries = max_number_of_keys;
-    return dict;
+    *out = kmalloc(sizeof(LinkedList_t));
+    *out->head = NULL;
+    *out->last = NULL;
+    *out->length = 0;
 }
 
-void *get_value(simple_dict_t *dict, int key)
+void add_element(LinkedList_t *lst, int key, void *val)
 {
-    int i;
-    for (i = 0; i < dict->current_entry_index; i++)
+    // create new node
+    struct Node *node = kmalloc(sizeof(struct Node *));
+    node->next = NULL;
+    node->key = key;
+    node->value = val;
+    // place node in lst
+    if (lst->head == NULL)
     {
-        if (key == dict->entries[i].key)
-            return &dict->entries[i].val;
+        lst->head = node;
+        lst->last = node;
     }
-    return NULL;
+    else
+    {
+        lst->last->next = node;
+        lst->last = node;
+    }
 }
 
-void set_value(simple_dict_t *dict, int key, void *value)
+void get_value(LinkedList_t *lst, int key, void ***out)
 {
-    if (dict->current_entry_index == dict->max_etries - 1)
+    struct Node *curr_node;
+    curr_node = lst->head;
+    *out = NULL;
+    while (curr_node != NULL)
     {
-        printk(KERN_ERR "simple dict is out of bounds.\n");
-        //exit(1);
+        if (curr_node->key != key)
+        {
+            *out = &curr_node->value;
+        }
+        curr_node = curr_node->next;
     }
-    dict->entries[dict->current_entry_index].key = key;
-    dict->entries[dict->current_entry_index].val = value;
-    dict->current_entry_index++;
 }
 
+int exist_in_lst(LinkedList_t *lst, int key)
+{
+    struct Node *out;
+    get_value(lst, key, &out);
+    if (out == NULL)
+        return 0;
+    return 1;
+}
+
+/* define lock */
+struct chardev_info
+{
+    spinlock_t lock;
+};
+// used to prevent concurent access into the same device
+static int dev_open_flag = 0;
+static struct chardev_info device_info;
+
+/* define channels lst */
+static LinkedList_t *channels_lst = NULL;
 typedef struct channels
 {
-    int current_channel;
-    char **messages;
+    int current_idx;
+    LinkedList_t *messages;
 } channels_t;
 
-channels_t *create_new_channel(void)
+channels_t *create_channel(void)
 {
-    int i;
-    channels_t *new_channels;
-    new_channels = kmalloc(sizeof(channels_t), GFP_KERNEL);
-    if (new_channels == NULL)
-    {
-        printk(KERN_ERR "memory allocation failer. in create_new_channel.");
-    }
-    new_channels->messages = kmalloc(CHANNELS_NUM * sizeof(char *), GFP_KERNEL);
-    if (new_channels->messages == NULL)
-    {
-        printk(KERN_ERR "memory allocation failer. in create_new_channel.");
-    }
-    for (i = 0; i < CHANNELS_NUM; i++)
-    {
-        new_channels->messages[i] = NULL;
-    }
-    new_channels->current_channel = 0;
-    return new_channels;
+    channels_t *channel = kmalloc(sizeof(channels_t));
+    initialize_lst(&channel->messages);
+    channel->current_idx = 0;
+    return channel;
 }
 
-simple_dict_t *minors_to_channels = NULL;
-
-void initialize_minor_to_channels(int number_of_minors)
+void update_message(channels_t *channel, int channel_idx, char *msg)
 {
-    minors_to_channels = create_simple_dict(number_of_minors, sizeof(channels_t));
-}
-
-channels_t *get_channels_obj_of_minor(int minor_num)
-{
-
-    if (minors_to_channels == NULL)
+    char **msg_mem;
+    if (exist_in_lst(channel->messages, channel_idx) == 1)
     {
-        printk(KERN_ERR "minors_to_channels object is not initialized\n");
-        //exit(1);
+        get_value(channel->messages, channel_idx, &msg_mem);
+        *msg_mem = msg;
     }
-    return (channels_t *)get_value(minors_to_channels, minor_num);
+    else
+    {
+        add_element(channel->messages, channel_idx, msg);
+    }
 }
-
-void add_minor(int minor_num)
-{
-    channels_t *new_channel;
-    new_channel = create_new_channel();
-    set_value(minors_to_channels, minor_num, new_channel);
-}
-
-static spinlock_t device_lock;
-static int dev_open_flag = 0; // we want to talk to one process only at a time
 
 static int device_open(struct inode *_inode, struct file *_file)
 {
     int minor_number;
     unsigned long flags = 0;
+    channels_t minor_channel;
+    // lock stuff
     spin_lock_irqsave(&device_lock, flags);
     if (dev_open_flag == 1)
     {
@@ -152,168 +138,170 @@ static int device_open(struct inode *_inode, struct file *_file)
         spin_unlock_irqrestore(&device_lock, flags);
         return -EBUSY;
     }
-
+    // save minor in struct file
     minor_number = iminor(_inode);
     _file->private_data = &minor_number;
-    // check if we initialized a data structure for that mnior. otherwise initialize one.
-    if (minors_to_channels == NULL)
+    // initialize a data structure for mnior if needed.
+    if (channels_lst == NULL)
     {
-        initialize_minor_to_channels(MAX_MINORS);
+        initialize_lst(&channels_lst);
     }
-    if (get_channels_obj_of_minor(minor_number) == NULL)
+    if ((exist_in_lst(channels_lst, minor_number)) == 0)
     {
-        add_minor(minor_number);
+        minor_channel = create_channel();
+        add_element(channels_lst, minor_number, minor_channel);
     }
     ++dev_open_flag;
     spin_unlock_irqrestore(&device_lock, flags);
     return 0;
 }
 
-static long device_ioctal(struct file * _file, unsigned int control_command, unsigned long command_paramters)
+static long device_ioctal(struct file *_file, unsigned int ioctl_command_id, unsigned long ioctl_param)
 {
-    channels_t *_channels;
+    channels_t **_channels;
     int *minor_number_ptr, minor_number;
     minor_number_ptr = (int *)(_file->private_data);
     minor_number = *minor_number_ptr;
-    // set current channel
-    if (control_command == 0)
+
+    if (IOCTL_SET_CAHNNEL_IDX == ioctl_command_id)
     {
-        if ((_channels = get_channels_obj_of_minor(minor_number)) == NULL)
+        if (exist_in_lst(channels_lst, minor_number) == 0)
         {
-            printk("minor channels should be initialized\n");
-            //exit(1);
+            printk(KERN_ERR "ERROR in device ioctal. channel should be initialized.") return ERROR;
         }
-        _channels->current_channel = command_paramters;
+        get_value(channels_lst, minor_number, &_channels);
+        (*_channels)->current_idx = ioctl_param;
     }
-    return 0;
+
+    return SUCCESS;
 }
 
-static ssize_t device_read(struct file *_file, char *buff, size_t buff_size, loff_t *file_offset)
+static ssize_t device_read(struct file *_file, char __user *buffer, size_t length, loff_t *offset)
 {
-    channels_t *_channels;
-    char *msg;
-    int *minor_number_ptr, minor_number, i;
+    char **msg;
+    channels_t **_channels;
+    int *minor_number_ptr, minor_number;
     minor_number_ptr = (int *)(_file->private_data);
     minor_number = *minor_number_ptr;
-    // set current channel
-    if ((_channels = get_channels_obj_of_minor(minor_number)) == NULL)
+
+    //set current channel
+    get_value(channels_lst, minor_number, &_channels);
+    if (*_channels == NULL)
     {
         printk(KERN_ERR "minor channels should be initialized\n");
-        //exit(1);
+        return ERROR;
     }
 
-    msg = _channels->messages[_channels->current_channel];
-    for (i = 0; i < buff_size; i++)
+    get_value((*_channels)->messages, (*_channels)->current_idx, &msg);
+    for (i = 0; i < length; i++)
     {
-        put_user(msg[i], &buff[i]);
+        put_user((*msg)[i], &(buffer[i]));
     }
-    return buff_size;
+
+    return length;
 }
 
 static ssize_t device_write(struct file *_file, const char *buff, size_t buff_size, loff_t *file_offset)
 {
-    channels_t *_channels;
     char *msg;
-    int *minor_number_ptr, minor_number, i;
+    channels_t **_channels;
+    int *minor_number_ptr, minor_number;
     minor_number_ptr = (int *)(_file->private_data);
     minor_number = *minor_number_ptr;
-    msg = kmalloc(buff_size, GFP_KERNEL);
-    if (msg == NULL)
-    {
-        printk(KERN_ERR "memory allocation failer. in device write.");
-    }
-    // set current channel
-    if ((_channels = get_channels_obj_of_minor(minor_number)) == NULL)
+
+    //set current channel
+    get_value(channels_lst, minor_number, &_channels);
+    if (*_channels == NULL)
     {
         printk(KERN_ERR "minor channels should be initialized\n");
-        //exit(1);
+        return ERROR;
     }
 
-    for (i = 0; i < buff_size; i++)
+    for (i = 0; i < length; i++)
     {
-        get_user(msg[i], &buff[i]);
+        get_user((*msg)[i], &(buffer[i]));
     }
-    _channels->messages[_channels->current_channel] = msg;
-    return 0;
+    add_element((*_channels)->messages, (*_channels)->current_idx, msg);
+
+    return length;
 }
 
 void free_channels(channels_t *_channels)
 {
-    int i;
-    for (i = 0; i < CHANNELS_NUM; i++)
+    struct Node *curr_node = _channels->messages->head;
+    struct Node *prev_node = NULL;
+    while (curr_node != NULL)
     {
-        kfree(_channels->messages[i]);
+        if (prev_node != NULL)
+        {
+            kfree(prev_node->value);
+            kfree(prev_node);
+        }
+        prev_node = curr_node;
+        curr_node = curr_node->next;
     }
 }
-void free_minors_data(simple_dict_t *dict)
+void free_channels_lst(LinkedList_t *lst)
 {
-    int i;
-    for (i = 0; i < dict->current_entry_index; i++)
+    struct Node *curr_node = _channels->messages->head;
+    struct Node *prev_node = NULL;
+    while (curr_node != NULL)
     {
-        free_channels(dict->entries[i].val);
-        kfree(&dict->entries[i]);
+        if (prev_node != NULL)
+        {
+            free_channels(prev_node->value);
+            kfree(prev_node->value);
+            kfree(prev_node);
+        }
+        prev_node = curr_node;
+        curr_node = curr_node->next;
     }
-    kfree(dict);
 }
 
 static int device_release(struct inode *_inode, struct file *_file)
 {
     unsigned long flags = 0;
-    // _file->private_data = NULL;
+    _file->private_data = NULL;
     spin_lock_irqsave(&device_lock, flags);
-    // free_minors_data(minors_to_channels);
+    free_channels_lst(channels_lst);
     dev_open_flag--; // the driver is free to talk with another process
     spin_unlock_irqrestore(&device_lock, flags);
     return 0;
 }
 
-// DEVICE SETUP (as we saw in recitation 6 chardev 1)
-
+// device setup
 struct file_operations Fops = {
     .owner = THIS_MODULE,
     .read = device_read,
     .write = device_write,
     .open = device_open,
+    .unlocked_ioctl = device_ioctl,
     .release = device_release,
-    .unlocked_ioctl = device_ioctal,
 };
 
-// Initialize the module - Register the character device
 static int __init simple_init(void)
 {
-    int registration_ret;
+    int rc = -1;
     // init dev struct
-    memset(&device_lock, 0, sizeof(device_lock));
-    spin_lock_init(&device_lock);
+    memset(&device_info, 0, sizeof(struct chardev_info));
+    spin_lock_init(&device_info.lock);
 
-    // Register driver.
-    registration_ret = register_chrdev(MAJOR_NUM, DEVICE_RANGE_NAME, &Fops);
+    rc = register_chrdev(MAJOR_NUM, DEVICE_RANGE_NAME, &Fops);
 
     // Negative values signify an error
-    if (registration_ret < 0)
+    if (rc < 0)
     {
         printk(KERN_ALERT "%s registraion failed for  %d\n",
                DEVICE_FILE_NAME, MAJOR_NUM);
-        return MAJOR_NUM;
+        return rc;
     }
 
-    printk("Registeration is successful. "
-           "The major device number is %d.\n",
-           MAJOR_NUM);
-    printk("If you want to talk to the device driver,\n");
-    printk("you have to create a device file:\n");
-    printk("mknod /dev/%s c %d 0\n", DEVICE_FILE_NAME, MAJOR_NUM);
-    printk("You can echo/cat to/from the device file.\n");
-    printk("Dont forget to rm the device file and "
-           "rmmod when you're done\n");
-
-    return 0;
+    printk("Registeration is successful. ");
+    return SUCCESS;
 }
 
-static void __exit simple_cleanup(void)
+tatic void __exit simple_cleanup(void)
 {
-    // Unregister the device
-    // Should always succeed
     unregister_chrdev(MAJOR_NUM, DEVICE_RANGE_NAME);
 }
 
