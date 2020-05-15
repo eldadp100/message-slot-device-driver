@@ -106,14 +106,15 @@ int exist_in_lst(LinkedList_t *lst, int key)
 
 void print_linked_list(LinkedList_t *lst)
 {
+    printk(KERN_DEBUG "START PRINT LIST\n");
+    printk(KERN_DEBUG "lst address %d \n", (int)lst);
     struct Node *curr_node;
     curr_node = lst->head;
-    printk("\n");
     while (curr_node != NULL)
     {
-        printk("%d, ", curr_node->key);
+        printk(KERN_DEBUG "%d, ", curr_node->key);
     }
-    printk("\n");
+    printk(KERN_DEBUG "\nSTOP PRINT LIST\n");
 }
 
 /* define lock */
@@ -223,7 +224,7 @@ static int device_open(struct inode *_inode, struct file *_file)
         return -EBUSY;
     }
     // save minor in struct file
-    minor_number = (unsigned int*)kmalloc(sizeof(int), GFP_KERNEL);
+    minor_number = (unsigned int *)kmalloc(sizeof(unsigned int), GFP_KERNEL);
     *minor_number = iminor(_inode);
     _file->private_data = minor_number;
     // initialize a data structure for mnior if needed.
