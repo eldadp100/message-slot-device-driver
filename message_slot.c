@@ -239,7 +239,7 @@ static long device_ioctal(struct file *_file, unsigned int ioctl_command_id, uns
     int *minor_number_ptr, minor_number;
     minor_number_ptr = (int *)(_file->private_data);
     minor_number = *minor_number_ptr;
-    printk("IOCTL INVOKED.\n change channel to: %ul. \nminor is: %d\n", ioctl_param, minor_number);
+    printk("IOCTL INVOKED.\n change channel to: %lu. \nminor is: %d\n", ioctl_param, minor_number);
 
     if (IOCTL_SET_CAHNNEL_IDX == ioctl_command_id)
     {
