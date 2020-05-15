@@ -69,9 +69,12 @@ void add_element(LinkedList_t *lst, int key, void *val)
 struct Node *get_node(LinkedList_t *lst, int key)
 {
     struct Node *curr_node;
+    printk("get node\n search for key: %d", key);
     curr_node = lst->head;
     while (curr_node != NULL)
     {
+        printk("%d == %d ?\n", curr_node->key, key);
+
         if (curr_node->key == key)
         {
             return curr_node;
