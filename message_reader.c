@@ -20,7 +20,7 @@ int main(int argc, char **argv)
     }
 
     char msg[100];
-    ret_val = ioctl(file_desc, IOCTL_SET_CAHNNEL_IDX, argv[2]);
+    ret_val = ioctl(file_desc, IOCTL_SET_CAHNNEL_IDX, atoi(argv[2]));
     ret_val = read(file_desc, msg, 100);
     printf("msg: %s \n", msg);
 
