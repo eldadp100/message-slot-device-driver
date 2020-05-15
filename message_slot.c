@@ -325,11 +325,11 @@ void free_slot_lst(LinkedList_t *slot_lst)
 static int device_release(struct inode *_inode, struct file *_file)
 {
     unsigned long flags;
-    // free memory
-    _file->private_data = NULL;
-    free_slot_lst(global_slots_lst);
-    // ready for our next caller
     spin_lock_irqsave(&device_info.lock, flags);
+    // free memory
+    // _file->private_data = NULL;
+    // free_slot_lst(global_slots_lst);
+    // ready for our next caller
     --dev_open_flag;
     spin_unlock_irqrestore(&device_info.lock, flags);
     return SUCCESS;
