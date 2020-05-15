@@ -214,7 +214,6 @@ static int device_open(struct inode *_inode, struct file *_file)
     unsigned int *minor_number;
     unsigned long flags;
     slot_t *minor_slot;
-    print_linked_list(global_slots_lst);
     printk(KERN_DEBUG "OPEN INVOKED\n");
     // lock stuff
     spin_lock_irqsave(&device_info.lock, flags);
