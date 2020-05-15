@@ -239,7 +239,7 @@ static long device_ioctal(struct file *_file, unsigned int ioctl_command_id, uns
     {
         if (exist_in_lst(global_slots_lst, minor_number) == 0)
         {
-            printk(KERN_ERR "ERROR in device ioctal. channel should be initialized.");
+            printk(KERN_ERR "ERROR in device ioctal. slot should be initialized.");
             return ERROR;
         }
         minor_slot = get_value(global_slots_lst, minor_number);
