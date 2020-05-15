@@ -49,7 +49,7 @@ LinkedList_t *initialize_lst(void)
 void add_element(LinkedList_t *lst, int key, void *val)
 {
     // create new node in heap
-    struct Node *node = kmalloc(sizeof(struct Node *), GFP_KERNEL);
+    struct Node *node = kmalloc(sizeof(struct Node), GFP_KERNEL);
     node->next = NULL;
     node->key = key;
     node->value = val;
@@ -200,7 +200,7 @@ char* read_message(LinkedList_t *slots_lst, int minor_number)
 
 static int device_open(struct inode *_inode, struct file *_file)
 {
-    int minor_number;
+    int *minor_number;
     unsigned long flags;
     slot_t *minor_slot;
     printk(KERN_DEBUG "OPEN INVOKED\n");
@@ -212,22 +212,28 @@ static int device_open(struct inode *_inode, struct file *_file)
         return -EBUSY;
     }
     // save minor in struct file
-    minor_number = iminor(_inode);
-    _file->private_data = &minor_number;
+    minor_number = kmalloc(sizeof(int), GFP_KERNEL)
+    *minor_number = iminor(_inode);
+    _file->private_data = minor_number;
     // initialize a data structure for mnior if needed.
     if (global_slots_lst == NULL)
     {
         global_slots_lst = initialize_lst();
     }
-    if (exist_in_lst(global_slots_lst, minor_number) == 0)
+    if (exist_in_lst(global_slots_lst, *minor_number) == 0)
     {
         minor_slot = create_slot();
-        add_element(global_slots_lst, minor_number, minor_slot);
+        add_element(global_slots_lst, *minor_number, minor_slot);
+    }
+
+    if (exist_in_lst(global_slots_lst, *minor_number) == 0)
+    {
+        printk(KERN_ERR "THERE IS A BUG IN LINKED LIST IMPLEMENTATION");
     }
     ++dev_open_flag;
     spin_unlock_irqrestore(&device_info.lock, flags);
 
-    printk(KERN_DEBUG "MINOR NUMBER: %d\n", minor_number);
+    printk(KERN_DEBUG "MINOR NUMBER: %d\n", *minor_number);
     printk(KERN_DEBUG "OPEN SUCCEED\n");
     return SUCCESS;
 }
