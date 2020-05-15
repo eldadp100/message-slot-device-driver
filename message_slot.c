@@ -113,6 +113,7 @@ void print_linked_list(LinkedList_t *lst)
     while (curr_node != NULL)
     {
         printk(KERN_DEBUG "%d, ", curr_node->key);
+        curr_node = curr_node->next;
     }
     printk(KERN_DEBUG "\nSTOP PRINT LIST\n");
 }
