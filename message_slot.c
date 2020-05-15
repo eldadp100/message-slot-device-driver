@@ -200,14 +200,13 @@ char* read_message(LinkedList_t *slots_lst, int minor_number)
 static int device_open(struct inode *_inode, struct file *_file)
 {
     int minor_number;
-    unsigned long flags = 0;
+    unsigned long flags;
     slot_t *minor_slot;
     // lock stuff
-    spin_lock_irqsave(&device_lock, flags);
-    if (dev_open_flag == 1)
+    spin_lock_irqsave(&device_info.lock, flags);
+    if(1 == dev_open_flag)
     {
-        printk(KERN_ERR "The device is busy\n");
-        spin_unlock_irqrestore(&device_lock, flags);
+        spin_unlock_irqrestore(&device_info.lock, flags);
         return -EBUSY;
     }
     // save minor in struct file
@@ -224,7 +223,7 @@ static int device_open(struct inode *_inode, struct file *_file)
         add_element(global_slots_lst, minor_number, minor_slot);
     }
     ++dev_open_flag;
-    spin_unlock_irqrestore(&device_lock, flags);
+    spin_unlock_irqrestore(&device_info.lock, flags);
     return SUCCESS;
 }
 
@@ -326,13 +325,15 @@ void free_slot_lst(LinkedList_t *slot_lst)
 
 static int device_release(struct inode *_inode, struct file *_file)
 {
-    unsigned long flags = 0;
+    unsigned long flags;
+    // free memory
     _file->private_data = NULL;
-    spin_lock_irqsave(&device_lock, flags);
     free_slot_lst(global_slots_lst);
-    dev_open_flag--; // the driver is free to talk with another process
-    spin_unlock_irqrestore(&device_lock, flags);
-    return 0;
+    // ready for our next caller
+    spin_lock_irqsave(&device_info.lock, flags);
+    --dev_open_flag;
+    spin_unlock_irqrestore(&device_info.lock, flags);
+    return SUCCESS;
 }
 
 // device setup
