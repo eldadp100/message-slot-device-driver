@@ -264,7 +264,7 @@ static ssize_t device_read(struct file *_file, char __user *buffer, size_t lengt
     
     for (i = 0; i < length; i++)
     {
-        put_user((*msg)[i], &(buffer[i]));
+        put_user(msg[i], &(buffer[i]));
     }
 
     return length;
@@ -366,7 +366,7 @@ static int __init simple_init(void)
     return SUCCESS;
 }
 
-tatic void __exit simple_cleanup(void)
+static void __exit simple_cleanup(void)
 {
     unregister_chrdev(MAJOR_NUM, DEVICE_RANGE_NAME);
 }
