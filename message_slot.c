@@ -203,7 +203,7 @@ static int device_open(struct inode *_inode, struct file *_file)
     int minor_number;
     unsigned long flags;
     slot_t *minor_slot;
-    printk("OPEN INVOKED\n");
+    printk(KERN_DEBUG "OPEN INVOKED\n");
     // lock stuff
     spin_lock_irqsave(&device_info.lock, flags);
     if(1 == dev_open_flag)
@@ -227,8 +227,8 @@ static int device_open(struct inode *_inode, struct file *_file)
     ++dev_open_flag;
     spin_unlock_irqrestore(&device_info.lock, flags);
 
-    printk("MINOR NUMBER: %d\n", minor_number);
-    printk("OPEN SUCCEED\n");
+    printk(KERN_DEBUG "MINOR NUMBER: %d\n", minor_number);
+    printk(KERN_DEBUG "OPEN SUCCEED\n");
     return SUCCESS;
 }
 
@@ -239,11 +239,11 @@ static long device_ioctal(struct file *_file, unsigned int ioctl_command_id, uns
     int *minor_number_ptr, minor_number;
     minor_number_ptr = (int *)(_file->private_data);
     minor_number = *minor_number_ptr;
-    printk("IOCTL INVOKED.\n change channel to: %lu. \nminor is: %d\n", ioctl_param, minor_number);
+    printk(KERN_DEBUG "IOCTL INVOKED.\n change channel to: %lu. \nminor is: %d\n", ioctl_param, minor_number);
 
     if (IOCTL_SET_CAHNNEL_IDX == ioctl_command_id)
     {
-        printk("Check if minor slot exists. MINOR = %d", minor_number);
+        printk(KERN_DEBUG "Check if minor slot exists. MINOR = %d", minor_number);
         if (exist_in_lst(global_slots_lst, minor_number) == 0)
         {
             printk(KERN_ERR "ERROR in device ioctal. slot should be initialized.");
@@ -253,7 +253,7 @@ static long device_ioctal(struct file *_file, unsigned int ioctl_command_id, uns
         minor_slot->current_channel = ioctl_param;
     }
 
-    printk("IOCTL SUCCEEDED\n");
+    printk(KERN_DEBUG "IOCTL SUCCEEDED\n");
     return SUCCESS;
 }
 
@@ -263,7 +263,7 @@ static ssize_t device_read(struct file *_file, char __user *buffer, size_t lengt
     int *minor_number_ptr, minor_number, i;
     minor_number_ptr = (int *)(_file->private_data);
     minor_number = *minor_number_ptr;
-    printk("READ INVOKED.\n minor is: %ul\n", minor_number);
+    printk(KERN_DEBUG "READ INVOKED.\n minor is: %ul\n", minor_number);
 
     msg = read_message(global_slots_lst, minor_number);
     if (msg == NULL)
@@ -276,7 +276,7 @@ static ssize_t device_read(struct file *_file, char __user *buffer, size_t lengt
         put_user(msg[i], &(buffer[i]));
     }
 
-    printk("READ SUCCED");
+    printk(KERN_DEBUG "READ SUCCED");
     return length;
 }
 
@@ -288,7 +288,7 @@ static ssize_t device_write(struct file *_file, const char __user *buffer, size_
     minor_number = *minor_number_ptr;
     msg = kmalloc(length, GFP_KERNEL);
 
-    printk("WRITE INVOKED.\n minor is: %ul\n", minor_number);
+    printk(KERN_DEBUG "WRITE INVOKED.\n minor is: %ul\n", minor_number);
 
     for (i = 0; i < length; i++)
     {
@@ -301,7 +301,7 @@ static ssize_t device_write(struct file *_file, const char __user *buffer, size_
         return 0;
     }
 
-    printk("READ SUCCED");
+    printk(KERN_DEBUG "READ SUCCED");
     return length;
 }
 
@@ -340,7 +340,7 @@ void free_slot_lst(LinkedList_t *slot_lst)
 static int device_release(struct inode *_inode, struct file *_file)
 {
     unsigned long flags;
-    printk("MINOR DEVICE RELEASE.\n minor is: %d", iminor(_inode));
+    printk(KERN_DEBUG "MINOR DEVICE RELEASE.\n minor is: %d", iminor(_inode));
     spin_lock_irqsave(&device_info.lock, flags);
     // free memory
     // _file->private_data = NULL;
@@ -378,7 +378,7 @@ static int __init simple_init(void)
         return rc;
     }
 
-    printk("Registeration is successful. ");
+    printk(KERN_DEBUG "Registeration is successful. ");
     return SUCCESS;
 }
 
