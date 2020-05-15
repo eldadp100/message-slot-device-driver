@@ -134,7 +134,7 @@ slot_t *create_slot(void)
     return slot;
 }
 
-channel_t create_channel(void)
+channel_t* create_channel(void)
 {
     channel_t *channel = kmalloc(sizeof(channel_t), GFP_KERNEL);
     return channel;
@@ -158,7 +158,8 @@ int update_message(LinkedList_t *slots_lst, int minor_number, char *new_msg)
     if (exist_in_lst(minor_slot->channels, channel_number) == 0)
     {
         channel = create_channel();
-        add_element(minor_slot->channels, channel_number, new_msg);
+        channel->message = new_msg;
+        add_element(minor_slot->channels, channel_number, channel);
     }
     else
     {
@@ -251,8 +252,7 @@ static long device_ioctal(struct file *_file, unsigned int ioctl_command_id, uns
 static ssize_t device_read(struct file *_file, char __user *buffer, size_t length, loff_t *offset)
 {
     char *msg;
-    slot_t *minor_slot;
-    int *minor_number_ptr, minor_number;
+    int *minor_number_ptr, minor_number, i;
     minor_number_ptr = (int *)(_file->private_data);
     minor_number = *minor_number_ptr;
 
@@ -273,8 +273,7 @@ static ssize_t device_read(struct file *_file, char __user *buffer, size_t lengt
 static ssize_t device_write(struct file *_file, const char __user *buffer, size_t length, loff_t *offset)
 {
     char *msg;
-    slot_t *minor_slot;
-    int *minor_number_ptr, minor_number;
+    int *minor_number_ptr, minor_number, ret, i;
     minor_number_ptr = (int *)(_file->private_data);
     minor_number = *minor_number_ptr;
     
@@ -342,7 +341,7 @@ struct file_operations Fops = {
     .read = device_read,
     .write = device_write,
     .open = device_open,
-    .unlocked_ioctl = device_ioctl,
+    .unlocked_ioctl = device_ioctal,
     .release = device_release,
 };
 
