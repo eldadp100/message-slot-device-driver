@@ -72,7 +72,7 @@ struct Node *get_node(LinkedList_t *lst, int key)
     curr_node = lst->head;
     while (curr_node != NULL)
     {
-        if (curr_node->key != key)
+        if (curr_node->key == key)
         {
             return curr_node;
         }
