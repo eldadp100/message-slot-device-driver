@@ -276,7 +276,7 @@ static ssize_t device_write(struct file *_file, const char __user *buffer, size_
     int *minor_number_ptr, minor_number, ret, i;
     minor_number_ptr = (int *)(_file->private_data);
     minor_number = *minor_number_ptr;
-    
+    msg = kmalloc(length, GFP_KERNEL);
     for (i = 0; i < length; i++)
     {
         get_user(msg[i], &(buffer[i]));
