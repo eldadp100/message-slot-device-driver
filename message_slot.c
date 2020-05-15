@@ -1,3 +1,10 @@
+
+/*
+    Message Slot is a list of slots. slot for each minor.
+    each slot is a list of channels
+    each channel is a message buffer
+*/
+
 #undef __KERNEL__
 #define __KERNEL__
 #undef MODULE
@@ -29,22 +36,19 @@ typedef struct LinkedList
     int length;
 } LinkedList_t;
 
-// void initialize_lst(LinkedList_t **out);
-// void add_element(LinkedList_t *, int key, void *val);
-// void get_value(LinkedList_t *, int key, void ***out);
-// void exist_in_lst(LinkedList_t *, int key);
-
-void initialize_lst(LinkedList_t **out)
+LinkedList_t *initialize_lst(void)
 {
-    *out = kmalloc(sizeof(LinkedList_t), GFP_KERNEL);
-    *out->head = NULL;
-    *out->last = NULL;
-    *out->length = 0;
+    LinkedList_t *out;
+    out = kmalloc(sizeof(LinkedList_t), GFP_KERNEL);
+    out->head = NULL;
+    out->last = NULL;
+    out->length = 0;
+    return out;
 }
 
 void add_element(LinkedList_t *lst, int key, void *val)
 {
-    // create new node
+    // create new node in heap
     struct Node *node = kmalloc(sizeof(struct Node *), GFP_KERNEL);
     node->next = NULL;
     node->key = key;
@@ -62,26 +66,40 @@ void add_element(LinkedList_t *lst, int key, void *val)
     }
 }
 
-void get_value(LinkedList_t *lst, int key, void ***out)
+struct Node *get_node(LinkedList_t *lst, int key)
 {
     struct Node *curr_node;
     curr_node = lst->head;
-    *out = NULL;
     while (curr_node != NULL)
     {
         if (curr_node->key != key)
         {
-            *out = &curr_node->value;
+            return curr_node;
         }
         curr_node = curr_node->next;
     }
+    return NULL;
+}
+
+void *get_value(LinkedList_t *lst, int key)
+{
+    struct Node *node;
+    node = get_node(lst, key);
+    return node->value;
+}
+
+void change_value(LinkedList_t *lst, int key, void *new_val)
+{
+    struct Node *node;
+    node = get_node(lst, key);
+    node->value = new_val;
 }
 
 int exist_in_lst(LinkedList_t *lst, int key)
 {
-    struct Node *out;
-    get_value(lst, key, &out);
-    if (out == NULL)
+    struct Node *node;
+    node = get_node(lst, key);
+    if (node == NULL)
         return 0;
     return 1;
 }
@@ -96,32 +114,86 @@ static int dev_open_flag = 0;
 static struct chardev_info device_info;
 
 /* define channels lst */
-static LinkedList_t *channels_lst = NULL;
-typedef struct channels
+static LinkedList_t *global_slots_lst = NULL;
+typedef struct slot
 {
-    int current_idx;
-    LinkedList_t *messages;
-} channels_t;
+    int current_channel;
+    LinkedList_t *channels;
+} slot_t;
 
-channels_t *create_channel(void)
+typedef struct channel
 {
-    channels_t *channel = kmalloc(sizeof(channels_t), GFP_KERNEL);
-    initialize_lst(&channel->messages);
-    channel->current_idx = 0;
+    char *message;
+} channel_t;
+
+slot_t *create_slot(void)
+{
+    slot_t *slot = kmalloc(sizeof(slot_t), GFP_KERNEL);
+    slot->channels = initialize_lst();
+    slot->current_channel = 0;
+    return slot;
+}
+
+channel_t create_channel(void)
+{
+    channel_t *channel = kmalloc(sizeof(channel_t), GFP_KERNEL);
     return channel;
 }
 
-void update_message(channels_t *channel, int channel_idx, char *msg)
+int update_message(LinkedList_t *slots_lst, int minor_number, char *new_msg)
 {
-    char **msg_mem;
-    if (exist_in_lst(channel->messages, channel_idx) == 1)
+    slot_t *minor_slot;
+    channel_t *channel;
+    int channel_number;
+    if (exist_in_lst(slots_lst, minor_number) == 0)
     {
-        get_value(channel->messages, channel_idx, &msg_mem);
-        *msg_mem = msg;
+        printk(KERN_ERR "ERROR in message write (update). slot should be initialized.");
+        return ERROR;
     }
     else
     {
-        add_element(channel->messages, channel_idx, msg);
+        minor_slot = (slot_t *)get_value(slots_lst, minor_number);
+    }
+    channel_number = minor_slot->current_channel;
+    if (exist_in_lst(minor_slot->channels, channel_number) == 0)
+    {
+        channel = create_channel();
+        add_element(minor_slot->channels, channel_number, new_msg);
+    }
+    else
+    {
+        channel = (channel_t *)get_value(minor_slot->channels, channel_number);
+        channel->message = new_msg;
+    }
+    return SUCCESS;
+}
+
+
+
+char* read_message(LinkedList_t *slots_lst, int minor_number)
+{
+    slot_t *minor_slot;
+    channel_t *channel;
+    int channel_number;
+    if (exist_in_lst(slots_lst, minor_number) == 0)
+    {
+        printk(KERN_ERR "ERROR in message read. slot should be initialized.");
+        return NULL;
+    }
+    else
+    {
+        minor_slot = (slot_t *)get_value(slots_lst, minor_number);
+    }
+    channel_number = minor_slot->current_channel;
+    if (exist_in_lst(minor_slot->channels, channel_number) == 0)
+    {
+        printk(KERN_ERR "ERROR in message read. channel should be initialized.");
+        return NULL;
+    }
+    else
+    {
+        channel = (channel_t *)get_value(minor_slot->channels, channel_number);
+        return channel->message;
     }
 }
 
@@ -129,7 +201,7 @@ static int device_open(struct inode *_inode, struct file *_file)
 {
     int minor_number;
     unsigned long flags = 0;
-    channels_t minor_channel;
+    slot_t *minor_slot;
     // lock stuff
     spin_lock_irqsave(&device_lock, flags);
     if (dev_open_flag == 1)
@@ -142,35 +214,36 @@ static int device_open(struct inode *_inode, struct file *_file)
     minor_number = iminor(_inode);
     _file->private_data = &minor_number;
     // initialize a data structure for mnior if needed.
-    if (channels_lst == NULL)
+    if (global_slots_lst == NULL)
     {
-        initialize_lst(&channels_lst);
+        global_slots_lst = initialize_lst();
     }
-    if ((exist_in_lst(channels_lst, minor_number)) == 0)
+    if (exist_in_lst(global_slots_lst, minor_number) == 0)
     {
-        minor_channel = create_channel();
-        add_element(channels_lst, minor_number, minor_channel);
+        minor_slot = create_slot();
+        add_element(global_slots_lst, minor_number, minor_slot);
     }
     ++dev_open_flag;
     spin_unlock_irqrestore(&device_lock, flags);
-    return 0;
+    return SUCCESS;
 }
 
 static long device_ioctal(struct file *_file, unsigned int ioctl_command_id, unsigned long ioctl_param)
 {
-    channels_t **_channels;
+    slot_t *minor_slot;
     int *minor_number_ptr, minor_number;
     minor_number_ptr = (int *)(_file->private_data);
     minor_number = *minor_number_ptr;
 
     if (IOCTL_SET_CAHNNEL_IDX == ioctl_command_id)
     {
-        if (exist_in_lst(channels_lst, minor_number) == 0)
+        if (exist_in_lst(global_slots_lst, minor_number) == 0)
         {
-            printk(KERN_ERR "ERROR in device ioctal. channel should be initialized.") return ERROR;
+            printk(KERN_ERR "ERROR in device ioctal. channel should be initialized.");
+            return ERROR;
         }
-        get_value(channels_lst, minor_number, &_channels);
-        (*_channels)->current_idx = ioctl_param;
+        minor_slot = get_value(global_slots_lst, minor_number);
+        minor_slot->current_channel = ioctl_param;
     }
 
     return SUCCESS;
@@ -178,21 +251,18 @@ static long device_ioctal(struct file *_file, unsigned int ioctl_command_id, uns
 
 static ssize_t device_read(struct file *_file, char __user *buffer, size_t length, loff_t *offset)
 {
-    char **msg;
-    channels_t **_channels;
+    char *msg;
+    slot_t *minor_slot;
     int *minor_number_ptr, minor_number;
     minor_number_ptr = (int *)(_file->private_data);
     minor_number = *minor_number_ptr;
 
-    //set current channel
-    get_value(channels_lst, minor_number, &_channels);
-    if (*_channels == NULL)
+    msg = read_message(global_slots_lst, minor_number);
+    if (msg == NULL)
     {
-        printk(KERN_ERR "minor channels should be initialized\n");
         return ERROR;
     }
-
-    get_value((*_channels)->messages, (*_channels)->current_idx, &msg);
+    
     for (i = 0; i < length; i++)
     {
         put_user((*msg)[i], &(buffer[i]));
@@ -201,34 +271,30 @@ static ssize_t device_read(struct file *_file, char __user *buffer, size_t lengt
     return length;
 }
 
-static ssize_t device_write(struct file *_file, const char *buff, size_t buff_size, loff_t *file_offset)
+static ssize_t device_write(struct file *_file, const char __user *buffer, size_t length, loff_t *offset)
 {
     char *msg;
-    channels_t **_channels;
+    slot_t *minor_slot;
     int *minor_number_ptr, minor_number;
     minor_number_ptr = (int *)(_file->private_data);
     minor_number = *minor_number_ptr;
-
-    //set current channel
-    get_value(channels_lst, minor_number, &_channels);
-    if (*_channels == NULL)
-    {
-        printk(KERN_ERR "minor channels should be initialized\n");
-        return ERROR;
-    }
-
+    
     for (i = 0; i < length; i++)
     {
-        get_user((*msg)[i], &(buffer[i]));
+        get_user(msg[i], &(buffer[i]));
     }
-    add_element((*_channels)->messages, (*_channels)->current_idx, msg);
-
+    
+    ret = update_message(global_slots_lst, minor_number, msg);
+    if (ret == ERROR)
+    {
+        return 0;
+    }
     return length;
 }
 
-void free_channels(channels_t *_channels)
+void free_slot(slot_t *slot)
 {
-    struct Node *curr_node = _channels->messages->head;
+    struct Node *curr_node = slot->channels->head;
     struct Node *prev_node = NULL;
     while (curr_node != NULL)
     {
@@ -240,17 +306,17 @@ void free_channels(channels_t *_channels)
         prev_node = curr_node;
         curr_node = curr_node->next;
     }
+    kfree(slot);
 }
-void free_channels_lst(LinkedList_t *lst)
+void free_slot_lst(LinkedList_t *slot_lst)
 {
-    struct Node *curr_node = _channels->messages->head;
+    struct Node *curr_node = slot_lst->head;
     struct Node *prev_node = NULL;
     while (curr_node != NULL)
     {
         if (prev_node != NULL)
         {
-            free_channels(prev_node->value);
-            kfree(prev_node->value);
+            free_slot(prev_node->value);
             kfree(prev_node);
         }
         prev_node = curr_node;
@@ -263,7 +329,7 @@ static int device_release(struct inode *_inode, struct file *_file)
     unsigned long flags = 0;
     _file->private_data = NULL;
     spin_lock_irqsave(&device_lock, flags);
-    free_channels_lst(channels_lst);
+    free_slot_lst(global_slots_lst);
     dev_open_flag--; // the driver is free to talk with another process
     spin_unlock_irqrestore(&device_lock, flags);
     return 0;
