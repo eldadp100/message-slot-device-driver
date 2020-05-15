@@ -210,7 +210,7 @@ char *read_message(LinkedList_t *slots_lst, int minor_number)
 
 static int device_open(struct inode *_inode, struct file *_file)
 {
-    int *minor_number;
+    unsigned int *minor_number;
     unsigned long flags;
     slot_t *minor_slot;
     print_linked_list(global_slots_lst);
@@ -223,8 +223,8 @@ static int device_open(struct inode *_inode, struct file *_file)
         return -EBUSY;
     }
     // save minor in struct file
-    minor_number = kmalloc(sizeof(int), GFP_KERNEL)
-        *minor_number = iminor(_inode);
+    minor_number = (unsigned int*)kmalloc(sizeof(int), GFP_KERNEL);
+    *minor_number = iminor(_inode);
     _file->private_data = minor_number;
     // initialize a data structure for mnior if needed.
     if (global_slots_lst == NULL)
