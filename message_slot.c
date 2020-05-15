@@ -108,7 +108,7 @@ void print_linked_list(LinkedList_t *lst)
 {
     struct Node *curr_node;
     printk(KERN_DEBUG "START PRINT LIST\n");
-    printk(KERN_DEBUG "lst address %d \n", (long)lst);
+    printk(KERN_DEBUG "lst address %lu \n", (unsigned long)lst);
     curr_node = lst->head;
     while (curr_node != NULL)
     {
