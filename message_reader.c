@@ -38,7 +38,11 @@ int main(int argc, char **argv)
             return ERROR;
         }
     }
-    write(stdout, msg, buff_size);
+    int rt = write(STDOUT_FILENO, msg, buff_size);
+    if (rt != buff_size)
+    {
+        return ERROR;
+    }
     close(file_desc);
     return SUCCESS;
 }
