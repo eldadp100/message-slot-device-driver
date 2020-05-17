@@ -36,10 +36,10 @@ int main(int argc, char **argv)
         ret = write(STDOUT_FILENO, msg, buff_size);
         if (ret != buff_size)
             return ERROR;
-        printf("ret=%d, buff=%d\n", ret_val, buff_size);
+        // printf("ret=%d, buff=%d\n", ret_val, buff_size);
     }
 
-    printf("\nmsg: %s\n", msg);
+    // printf("\nmsg: %s\n", msg);
     close(file_desc);
     return SUCCESS;
 }
