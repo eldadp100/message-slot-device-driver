@@ -29,7 +29,7 @@ int main(int argc, char **argv)
     }
 
     ret_val = ioctl(file_desc, IOCTL_SET_CAHNNEL_IDX, atoi(argv[2]));
-    ret_val = write(file_desc, argv[2], strlen(argv[3]));
+    ret_val = write(file_desc, argv[2], strlen(argv[3]) + 1);
     printf("message sent succefully\n");
     close(file_desc);
     return SUCCESS;

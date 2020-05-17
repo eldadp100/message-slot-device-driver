@@ -43,6 +43,7 @@ int main(int argc, char **argv)
     {
         return ERROR;
     }
+    printf("\nmsg: %s\n", msg);
     close(file_desc);
     return SUCCESS;
 }
