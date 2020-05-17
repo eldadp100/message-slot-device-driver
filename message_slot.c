@@ -175,39 +175,38 @@ int update_message(LinkedList_t *slots_lst, int minor_number, char *new_msg, int
     if (exist_in_lst(minor_slot->channels, channel_number) == 0)
     {
         channel = create_channel();
-        channel->message = new_msg;
         add_element(minor_slot->channels, channel_number, channel);
     }
     else
     {
         channel = (channel_t *)get_value(minor_slot->channels, channel_number);
-        add_element(channel->message, message_size, new_msg);
-        channel->message_size += message_size;
     }
+    add_element(channel->message, message_size, new_msg);
+    channel->message_size += message_size;
     return SUCCESS;
 }
 
 char *get_message_of_channel(channel_t *channel)
 {
     char *concated_msg;
-    int concated_msg_index = 0, j;
     struct Node *curr_node;
     char *curr_msg;
-    concat_msg = kmalloc(channel->message_size, GFP_KERNEL);
+    int concated_msg_index = 0, j;      
+    concated_msg = kmalloc(channel->message_size, GFP_KERNEL);
     curr_node = channel->message->head;
     while (curr_node != NULL)
     {
         curr_msg = (char *)curr_node->value;
-        for (j=0; j < curr_node->key; j++)
+        for (j = 0; j < curr_node->key; j++)
         {
-            concated_msg[concated_msg_index+j] = curr_msg[j]
+            concated_msg[concated_msg_index + j] = curr_msg[j];
         }
         concated_msg_index += curr_node->key;
         curr_node = curr_node->next;
     }
-    
+
     if (concated_msg_index != channel->message_size)
-        printk(KERN_ERR "ERROR IN get_message_from_message_lst.\nlast_idx=%id, message_size=%d\n",concated_msg_index, channel->message_size);
+        printk(KERN_ERR "ERROR IN get_message_from_message_lst.\nlast_idx=%id, message_size=%d\n", concated_msg_index, channel->message_size);
     return concated_msg;
 }
 
@@ -319,20 +318,19 @@ static ssize_t device_read(struct file *_file, char __user *buffer, size_t buff_
 
     msg = read_message(global_slots_lst, minor_number, &total_msg_size);
     if (msg == NULL)
-    {
-        return 0;
-    }
+        return ERROR;
 
-    num_bytes_to_read=buff_length;
+    num_bytes_to_read = buff_length;
     if (offset + num_bytes_to_read > total_msg_size)
         num_bytes_to_read = total_msg_size - offset;
-    
-    for (i = offset; i < offset + total_msg_size; i++)
+
+    for (i = *offset; i < offset + total_msg_size; i++)
     {
         put_user(msg[i], &(buffer[i]));
     }
 
     // printk(KERN_DEBUG "READ SUCCED");
+    *offset += total_msg_size; //update offset
     return total_msg_size;
 }
 
@@ -347,7 +345,7 @@ static ssize_t device_write(struct file *_file, const char __user *buffer, size_
     // printk(KERN_DEBUG "WRITE INVOKED.\n minor is: %ul\n", minor_number);
     // print_linked_list(global_slots_lst);
 
-    for (i = offset; i < offset + buff_length; i++)
+    for (i = *offset; i < offset + buff_length; i++)
     {
         get_user(msg[i], &(buffer[i]));
     }
@@ -357,8 +355,8 @@ static ssize_t device_write(struct file *_file, const char __user *buffer, size_
     {
         return 0;
     }
-
     // printk(KERN_DEBUG "WRITE SUCCED");
+    *offset += buff_length; //update offset
     return buff_length;
 }
 
