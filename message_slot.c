@@ -324,14 +324,15 @@ static ssize_t device_read(struct file *_file, char __user *buffer, size_t buff_
     if (*offset + num_bytes_to_read > total_msg_size)
         num_bytes_to_read = total_msg_size - *offset;
 
-    for (i = *offset; i < *offset + total_msg_size; i++)
+    for (i = *offset; i < *offset + num_bytes_to_read; i++)
     {
         put_user(msg[i], &(buffer[i]));
     }
 
     // printk(KERN_DEBUG "READ SUCCED");
+    kfree(msg);
     *offset += total_msg_size; //update offset
-    return total_msg_size;
+    return num_bytes_to_read;
 }
 
 static ssize_t device_write(struct file *_file, const char __user *buffer, size_t buff_length, loff_t *offset)
