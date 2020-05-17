@@ -324,7 +324,7 @@ static ssize_t device_read(struct file *_file, char __user *buffer, size_t buff_
     if (*offset + num_bytes_to_read > total_msg_size)
         num_bytes_to_read = total_msg_size - *offset;
 
-    for (i = *offset; i < offset + total_msg_size; i++)
+    for (i = *offset; i < *offset + total_msg_size; i++)
     {
         put_user(msg[i], &(buffer[i]));
     }
@@ -345,12 +345,12 @@ static ssize_t device_write(struct file *_file, const char __user *buffer, size_
     // printk(KERN_DEBUG "WRITE INVOKED.\n minor is: %ul\n", minor_number);
     // print_linked_list(global_slots_lst);
 
-    for (i = *offset; i < offset + buff_length; i++)
+    for (i = *offset; i < *offset + buff_length; i++)
     {
         get_user(msg[i], &(buffer[i]));
     }
 
-    ret = update_message(global_slots_lst, minor_number, msg);
+    ret = update_message(global_slots_lst, minor_number, msg, buff_length);
     if (ret == ERROR)
     {
         return 0;
