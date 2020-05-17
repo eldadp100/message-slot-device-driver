@@ -3,12 +3,18 @@
 */
 #include "message_slot.h"
 #include <stdlib.h>
-#include <fcntl.h>
 #include <stdio.h>
+#include <string.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
-#include <string.h>
 
+
+/*
+    argv[1] = device path
+    argv[2] = channel id
+    argv[3] = message to pass through channel
+*/
 int main(int argc, char **argv)
 {
     int file_desc;
@@ -18,13 +24,13 @@ int main(int argc, char **argv)
     file_desc = open(argv[1], O_RDWR);
     if (file_desc < 0)
     {
-        printf("Can't open");
-        exit(-1);
+        perror("can't open device\n the error message:");
+        return ERROR;
     }
 
-    ret_val = ioctl(file_desc, IOCTL_SET_CAHNNEL_IDX, atoi(argv[3]));
-    ret_val = write(file_desc, argv[2], strlen(argv[2]) + 1);
-    printf("message sent");
+    ret_val = ioctl(file_desc, IOCTL_SET_CAHNNEL_IDX, atoi(argv[2]));
+    ret_val = write(file_desc, argv[2], strlen(argv[3]));
+    printf("message sent succefully\n");
     close(file_desc);
-    return 0;
+    return SUCCESS;
 }

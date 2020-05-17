@@ -8,23 +8,37 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 
+/*
+    argv[1] = device path
+    argv[2] = channel id
+*/
 int main(int argc, char **argv)
 {
     int file_desc;
     int ret_val;
+    int buff_size = 100;
+    char msg[buff_size];
+
     file_desc = open(argv[1], O_RDWR);
     if (file_desc < 0)
     {
-        printf("Can't open\n");
-        exit(-1);
+        perror("can't open device\n the error message:");
+        return ERROR;
     }
 
-    char msg[100];
     ret_val = ioctl(file_desc, IOCTL_SET_CAHNNEL_IDX, atoi(argv[2]));
-    ret_val = read(file_desc, msg, 100);
-    printf("msg: %s \n", msg);
-
-
+    ret_val = read(file_desc, msg, buff_size);
+    if (ret_val == 0)
+    {
+        if (buff_size == 0)
+            return SUCCESS;
+        else
+        {
+            perror("ERROR:");
+            return ERROR;
+        }
+    }
+    write(stdout, msg, buff_size);
     close(file_desc);
-    return 0;
+    return SUCCESS;
 }

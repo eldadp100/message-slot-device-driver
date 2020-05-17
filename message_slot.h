@@ -1,7 +1,7 @@
 
 
 #define SUCCESS 0
-#define ERROR -1
+#define ERROR 1
 #define MAJOR_NUM 240
 
 

@@ -69,12 +69,9 @@ void add_element(LinkedList_t *lst, int key, void *val)
 struct Node *get_node(LinkedList_t *lst, int key)
 {
     struct Node *curr_node;
-    printk("get node\n search for key: %d", key);
     curr_node = lst->head;
     while (curr_node != NULL)
     {
-        printk("%d == %d ?\n", curr_node->key, key);
-
         if (curr_node->key == key)
         {
             return curr_node;
@@ -110,15 +107,15 @@ int exist_in_lst(LinkedList_t *lst, int key)
 void print_linked_list(LinkedList_t *lst)
 {
     struct Node *curr_node;
-    printk(KERN_DEBUG "START PRINT LIST\n");
-    printk(KERN_DEBUG "lst address %lu \n", (unsigned long)lst);
+    // printk(KERN_DEBUG "START PRINT LIST\n");
+    // printk(KERN_DEBUG "lst address %lu \n", (unsigned long)lst);
     curr_node = lst->head;
     while (curr_node != NULL)
     {
         printk(KERN_DEBUG "%d, ", curr_node->key);
         curr_node = curr_node->next;
     }
-    printk(KERN_DEBUG "\nSTOP PRINT LIST\n");
+    // printk(KERN_DEBUG "\nSTOP PRINT LIST\n");
 }
 
 /* define lock */
@@ -140,7 +137,8 @@ typedef struct slot
 
 typedef struct channel
 {
-    char *message;
+    LinkedList_t *message;
+    int message_size;
 } channel_t;
 
 slot_t *create_slot(void)
@@ -154,10 +152,12 @@ slot_t *create_slot(void)
 channel_t *create_channel(void)
 {
     channel_t *channel = kmalloc(sizeof(channel_t), GFP_KERNEL);
+    channel->message = initialize_lst();
+    channel->message_size = 0;
     return channel;
 }
 
-int update_message(LinkedList_t *slots_lst, int minor_number, char *new_msg)
+int update_message(LinkedList_t *slots_lst, int minor_number, char *new_msg, int message_size)
 {
     slot_t *minor_slot;
     channel_t *channel;
@@ -181,16 +181,42 @@ int update_message(LinkedList_t *slots_lst, int minor_number, char *new_msg)
     else
     {
         channel = (channel_t *)get_value(minor_slot->channels, channel_number);
-        channel->message = new_msg;
+        add_element(channel->message, message_size, new_msg);
+        channel->message_size += message_size;
     }
     return SUCCESS;
 }
 
-char *read_message(LinkedList_t *slots_lst, int minor_number)
+char *get_message_of_channel(channel_t *channel)
+{
+    char *concated_msg;
+    int concated_msg_index = 0, j;
+    struct Node *curr_node;
+    char *curr_msg;
+    concat_msg = kmalloc(channel->message_size, GFP_KERNEL);
+    curr_node = channel->message->head;
+    while (curr_node != NULL)
+    {
+        curr_msg = (char *)curr_node->value;
+        for (j=0; j < curr_node->key; j++)
+        {
+            concated_msg[concated_msg_index+j] = curr_msg[j]
+        }
+        concated_msg_index += curr_node->key;
+        curr_node = curr_node->next;
+    }
+    
+    if (concated_msg_index != channel->message_size)
+        printk(KERN_ERR "ERROR IN get_message_from_message_lst.\nlast_idx=%id, message_size=%d\n",concated_msg_index, channel->message_size);
+    return concated_msg;
+}
+
+char *read_message(LinkedList_t *slots_lst, int minor_number, int *out_msg_size)
 {
     slot_t *minor_slot;
     channel_t *channel;
     int channel_number;
+    char *concatenated_msg;
     if (exist_in_lst(slots_lst, minor_number) == 0)
     {
         printk(KERN_ERR "ERROR in message read. slot should be initialized.");
@@ -209,7 +235,9 @@ char *read_message(LinkedList_t *slots_lst, int minor_number)
     else
     {
         channel = (channel_t *)get_value(minor_slot->channels, channel_number);
-        return channel->message;
+        concatenated_msg = get_message_of_channel(channel->message);
+        *out_msg_size = channel->message_size;
+        return concatenated_msg;
     }
 }
 
@@ -218,7 +246,7 @@ static int device_open(struct inode *_inode, struct file *_file)
     unsigned int *minor_number;
     unsigned long flags;
     slot_t *minor_slot;
-    printk(KERN_DEBUG "OPEN INVOKED\n");
+    // printk(KERN_DEBUG "OPEN INVOKED\n");
     // lock stuff
     spin_lock_irqsave(&device_info.lock, flags);
     if (1 == dev_open_flag)
@@ -248,8 +276,8 @@ static int device_open(struct inode *_inode, struct file *_file)
     ++dev_open_flag;
     spin_unlock_irqrestore(&device_info.lock, flags);
 
-    printk(KERN_DEBUG "MINOR NUMBER: %d\n", *minor_number);
-    printk(KERN_DEBUG "OPEN SUCCEED\n");
+    // printk(KERN_DEBUG "MINOR NUMBER: %d\n", *minor_number);
+    // printk(KERN_DEBUG "OPEN SUCCEED\n");
     return SUCCESS;
 }
 
@@ -260,12 +288,12 @@ static long device_ioctal(struct file *_file, unsigned int ioctl_command_id, uns
     int *minor_number_ptr, minor_number;
     minor_number_ptr = (int *)(_file->private_data);
     minor_number = *minor_number_ptr;
-    printk(KERN_DEBUG "IOCTL INVOKED.\n change channel to: %lu. \nminor is: %d\n", ioctl_param, minor_number);
-    print_linked_list(global_slots_lst);
+    // printk(KERN_DEBUG "IOCTL INVOKED.\n change channel to: %lu. \nminor is: %d\n", ioctl_param, minor_number);
+    // print_linked_list(global_slots_lst);
 
     if (IOCTL_SET_CAHNNEL_IDX == ioctl_command_id)
     {
-        printk(KERN_DEBUG "Check if minor slot exists. MINOR = %d", minor_number);
+        // printk(KERN_DEBUG "Check if minor slot exists. MINOR = %d", minor_number);
         if (exist_in_lst(global_slots_lst, minor_number) == 0)
         {
             printk(KERN_ERR "ERROR in device ioctal. slot should be initialized.");
@@ -275,46 +303,51 @@ static long device_ioctal(struct file *_file, unsigned int ioctl_command_id, uns
         minor_slot->current_channel = ioctl_param;
     }
 
-    printk(KERN_DEBUG "IOCTL SUCCEEDED\n");
+    // printk(KERN_DEBUG "IOCTL SUCCEEDED\n");
     return SUCCESS;
 }
 
-static ssize_t device_read(struct file *_file, char __user *buffer, size_t length, loff_t *offset)
+static ssize_t device_read(struct file *_file, char __user *buffer, size_t buff_length, loff_t *offset)
 {
     char *msg;
     int *minor_number_ptr, minor_number, i;
+    int total_msg_size, num_bytes_to_read;
     minor_number_ptr = (int *)(_file->private_data);
     minor_number = *minor_number_ptr;
-    printk(KERN_DEBUG "READ INVOKED.\n minor is: %ul\n", minor_number);
-    print_linked_list(global_slots_lst);
+    // printk(KERN_DEBUG "READ INVOKED.\n minor is: %ul\n", minor_number);
+    // print_linked_list(global_slots_lst);
 
-    msg = read_message(global_slots_lst, minor_number);
+    msg = read_message(global_slots_lst, minor_number, &total_msg_size);
     if (msg == NULL)
     {
-        return ERROR;
+        return 0;
     }
 
-    for (i = 0; i < length; i++)
+    num_bytes_to_read=buff_length;
+    if (offset + num_bytes_to_read > total_msg_size)
+        num_bytes_to_read = total_msg_size - offset;
+    
+    for (i = offset; i < offset + total_msg_size; i++)
     {
         put_user(msg[i], &(buffer[i]));
     }
 
-    printk(KERN_DEBUG "READ SUCCED");
-    return length;
+    // printk(KERN_DEBUG "READ SUCCED");
+    return total_msg_size;
 }
 
-static ssize_t device_write(struct file *_file, const char __user *buffer, size_t length, loff_t *offset)
+static ssize_t device_write(struct file *_file, const char __user *buffer, size_t buff_length, loff_t *offset)
 {
     char *msg;
     int *minor_number_ptr, minor_number, ret, i;
     minor_number_ptr = (int *)(_file->private_data);
     minor_number = *minor_number_ptr;
-    msg = kmalloc(length, GFP_KERNEL);
+    msg = kmalloc(buff_length, GFP_KERNEL);
 
-    printk(KERN_DEBUG "WRITE INVOKED.\n minor is: %ul\n", minor_number);
-    print_linked_list(global_slots_lst);
+    // printk(KERN_DEBUG "WRITE INVOKED.\n minor is: %ul\n", minor_number);
+    // print_linked_list(global_slots_lst);
 
-    for (i = 0; i < length; i++)
+    for (i = offset; i < offset + buff_length; i++)
     {
         get_user(msg[i], &(buffer[i]));
     }
@@ -325,8 +358,8 @@ static ssize_t device_write(struct file *_file, const char __user *buffer, size_
         return 0;
     }
 
-    printk(KERN_DEBUG "READ SUCCED");
-    return length;
+    // printk(KERN_DEBUG "WRITE SUCCED");
+    return buff_length;
 }
 
 void free_slot(slot_t *slot)
@@ -364,7 +397,7 @@ void free_slot_lst(LinkedList_t *slot_lst)
 static int device_release(struct inode *_inode, struct file *_file)
 {
     unsigned long flags;
-    printk(KERN_DEBUG "MINOR DEVICE RELEASE.\n minor is: %d", iminor(_inode));
+    // printk(KERN_DEBUG "MINOR DEVICE RELEASE.\n minor is: %d", iminor(_inode));
     spin_lock_irqsave(&device_info.lock, flags);
     // free memory
     // _file->private_data = NULL;
