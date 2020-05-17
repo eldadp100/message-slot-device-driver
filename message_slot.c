@@ -234,7 +234,7 @@ char *read_message(LinkedList_t *slots_lst, int minor_number, int *out_msg_size)
     else
     {
         channel = (channel_t *)get_value(minor_slot->channels, channel_number);
-        concatenated_msg = get_message_of_channel(channel->message);
+        concatenated_msg = get_message_of_channel(channel);
         *out_msg_size = channel->message_size;
         return concatenated_msg;
     }
@@ -321,8 +321,8 @@ static ssize_t device_read(struct file *_file, char __user *buffer, size_t buff_
         return ERROR;
 
     num_bytes_to_read = buff_length;
-    if (offset + num_bytes_to_read > total_msg_size)
-        num_bytes_to_read = total_msg_size - offset;
+    if (*offset + num_bytes_to_read > total_msg_size)
+        num_bytes_to_read = total_msg_size - *offset;
 
     for (i = *offset; i < offset + total_msg_size; i++)
     {
