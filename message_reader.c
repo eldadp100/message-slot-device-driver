@@ -15,8 +15,8 @@
 int main(int argc, char **argv)
 {
     int file_desc;
-    int ret_val;
-    int buff_size = 100;
+    int ret_val, ret;
+    int buff_size = 20;
     char msg[buff_size];
 
     file_desc = open(argv[1], O_RDWR);
@@ -27,22 +27,18 @@ int main(int argc, char **argv)
     }
 
     ret_val = ioctl(file_desc, IOCTL_SET_CAHNNEL_IDX, atoi(argv[2]));
-    ret_val = read(file_desc, msg, buff_size);
-    if (ret_val == 0)
+    ret_val = buff_size;
+    while (ret_val == buff_size)
     {
-        if (buff_size == 0)
-            return SUCCESS;
-        else
-        {
-            perror("ERROR:");
+        ret_val = read(file_desc, msg, buff_size);
+        if (ret_val == 0)
             return ERROR;
-        }
+        ret = write(STDOUT_FILENO, msg, buff_size);
+        if (ret != buff_size)
+            return ERROR;
+        printf("ret=%d, buff=%d\n", ret_val, buff_size);
     }
-    int rt = write(STDOUT_FILENO, msg, buff_size);
-    if (rt != buff_size)
-    {
-        return ERROR;
-    }
+
     printf("\nmsg: %s\n", msg);
     close(file_desc);
     return SUCCESS;
