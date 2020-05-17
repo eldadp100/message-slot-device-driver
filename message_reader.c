@@ -31,7 +31,7 @@ int main(int argc, char **argv)
     while (ret_val == buff_size)
     {
         ret_val = read(file_desc, msg, buff_size);
-        if (ret_val == 0)
+        if (ret_val == -ERROR)
             return ERROR;
         ret = write(STDOUT_FILENO, msg, buff_size);
         if (ret != buff_size)

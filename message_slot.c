@@ -318,7 +318,7 @@ static ssize_t device_read(struct file *_file, char __user *buffer, size_t buff_
 
     msg = read_message(global_slots_lst, minor_number, &total_msg_size);
     if (msg == NULL)
-        return ERROR;
+        return -ERROR;
 
     num_bytes_to_read = buff_length;
     if (*offset + num_bytes_to_read > total_msg_size)
@@ -331,7 +331,7 @@ static ssize_t device_read(struct file *_file, char __user *buffer, size_t buff_
 
     // printk(KERN_DEBUG "READ SUCCED");
     kfree(msg);
-    *offset += total_msg_size; //update offset
+    *offset += num_bytes_to_read; //update offset
     return num_bytes_to_read;
 }
 
