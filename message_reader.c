@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
+#include <string.h>
 
 /*
     argv[1] = device path
