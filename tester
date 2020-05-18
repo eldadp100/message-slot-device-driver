@@ -10,6 +10,7 @@ sudo ./reader.out /dev/message_slot 6
 sudo ./sender.out /dev/message_slot 6 "8 9 10 11 12 13"
 sudo ./reader.out /dev/message_slot 6
 
+sudo insmod message_slot.ko
 sudo mknod /dev/message_slot3 c 240 3
 sudo chmod 777 /dev/message_slot3
 sudo ./sender.out /dev/message_slot3 6 "ABC"
@@ -19,3 +20,5 @@ sudo ./reader.out /dev/message_slot3 6
 
 sudo rm /dev/message_slot
 sudo rmmod message_slot
+sudo rm /dev/message_slot3
+sudo rmmod message_slot3

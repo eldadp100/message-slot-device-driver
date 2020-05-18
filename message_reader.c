@@ -12,12 +12,14 @@
     argv[1] = device path
     argv[2] = channel id
 */
+
 int main(int argc, char **argv)
 {
     int file_desc;
     int ret_val, ret;
     int buff_size = 20;
     char msg[buff_size];
+    memset(msg, 0, buff_size);
 
     file_desc = open(argv[1], O_RDWR);
     if (file_desc < 0)
@@ -36,6 +38,7 @@ int main(int argc, char **argv)
         ret = write(STDOUT_FILENO, msg, buff_size);
         if (ret != buff_size)
             return ERROR;
+        memset(msg, 0, buff_size);
         // printf("ret=%d, buff=%d\n", ret_val, buff_size);
     }
 
