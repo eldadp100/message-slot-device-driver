@@ -257,6 +257,9 @@ static int device_open(struct inode *_inode, struct file *_file)
     minor_number = (unsigned int *)kmalloc(sizeof(unsigned int), GFP_KERNEL);
     *minor_number = iminor(_inode);
     _file->private_data = minor_number;
+
+    printk(KERN_DEBUG "MINOR NUMBER: %d", *minor_number);
+
     // initialize a data structure for mnior if needed.
     if (global_slots_lst == NULL)
     {
@@ -364,6 +367,10 @@ static ssize_t device_write(struct file *_file, const char __user *buffer, size_
 static int device_release(struct inode *_inode, struct file *_file)
 {
     unsigned long flags;
+    printk(KERN_DEBUG "free _file->private_data in device release\n");
+    kfree(_file->private_data);
+    printk(KERN_DEBUG "free _file->private_data in device release DONE\n");
+
     // printk(KERN_DEBUG "MINOR DEVICE RELEASE.\n minor is: %d", iminor(_inode));
     spin_lock_irqsave(&device_info.lock, flags);
     // ready for our next caller
@@ -399,13 +406,16 @@ static int __init simple_init(void)
         return rc;
     }
 
-    printk(KERN_DEBUG "Registeration is successful. ");
+    printk(KERN_DEBUG "Registeration is successful. \n");
     return SUCCESS;
 }
 
 void free_channel(channel_t *channel)
 {
     struct Node *curr_node, *prev_node;
+
+    printk(KERN_DEBUG "free channel\n");
+
     curr_node = channel->message->head;
     prev_node = NULL;
     while (curr_node != NULL)
@@ -419,10 +429,15 @@ void free_channel(channel_t *channel)
         curr_node = curr_node->next;
     }
     kfree(channel);
+    printk(KERN_DEBUG "free channel done\n");
+
 }
 void free_slot(slot_t *slot)
 {
     struct Node *curr_node, *prev_node;
+
+    printk(KERN_DEBUG "free single slot\n");
+
     curr_node = slot->channels->head;
     prev_node = NULL;
     while (curr_node != NULL)
@@ -436,10 +451,14 @@ void free_slot(slot_t *slot)
         curr_node = curr_node->next;
     }
     kfree(slot);
+    printk(KERN_DEBUG "free single slot done\n");
 }
 void free_slot_lst(LinkedList_t *slot_lst)
 {
     struct Node *curr_node, *prev_node;
+
+    printk(KERN_DEBUG "free slot_lst\n");
+
     curr_node = slot_lst->head;
     prev_node = NULL;
     while (curr_node != NULL)
@@ -452,13 +471,15 @@ void free_slot_lst(LinkedList_t *slot_lst)
         prev_node = curr_node;
         curr_node = curr_node->next;
     }
+    
+    printk(KERN_DEBUG "free slot_lst done\n");
 }
 
 static void __exit simple_cleanup(void)
 {
+    printk(KERN_DEBUG "start simple cleanup\n");
     // free memory
-    // free_slot_lst(global_slots_lst);
-
+    free_slot_lst(global_slots_lst);
     unregister_chrdev(MAJOR_NUM, DEVICE_RANGE_NAME);
 }
 
