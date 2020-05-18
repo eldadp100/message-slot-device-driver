@@ -3,10 +3,19 @@ sudo make
 sudo insmod message_slot.ko
 sudo mknod /dev/message_slot c 240 0
 sudo chmod 777 /dev/message_slot
-
 gcc -O3 -std=c11 message_reader.c -o reader.out
-gcc -O3 -std=c11 message_sender.c -o sender.out
-sudo ./sender.out /dev/message_slot "Hello" 5
-sudo ./reader.out /dev/message_slot 5
+gcc -O3 -std=c11 message_sender.c  -o sender.out
+sudo ./sender.out /dev/message_slot 6 "hello 1 2 3 4 5 6 7"
+sudo ./reader.out /dev/message_slot 6
+sudo ./sender.out /dev/message_slot 6 "8 9 10 11 12 13"
+sudo ./reader.out /dev/message_slot 6
+
+sudo mknod /dev/message_slot3 c 240 3
+sudo chmod 777 /dev/message_slot3
+sudo ./sender.out /dev/message_slot3 6 "ABC"
+sudo ./reader.out /dev/message_slot3 6
+sudo ./sender.out /dev/message_slot3 6 "DEF"
+sudo ./reader.out /dev/message_slot3 6
+
 sudo rm /dev/message_slot
 sudo rmmod message_slot

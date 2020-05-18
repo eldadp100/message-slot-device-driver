@@ -16,7 +16,7 @@ int main(int argc, char **argv)
 {
     int file_desc;
     int ret_val, ret;
-    int buff_size = 3;
+    int buff_size = 20;
     char msg[buff_size];
 
     file_desc = open(argv[1], O_RDWR);
