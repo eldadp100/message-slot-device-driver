@@ -191,7 +191,7 @@ char *get_message_of_channel(channel_t *channel)
     char *concated_msg;
     struct Node *curr_node;
     char *curr_msg;
-    int concated_msg_index = 0, j;      
+    int concated_msg_index = 0, j;
     concated_msg = kmalloc(channel->message_size, GFP_KERNEL);
     curr_node = channel->message->head;
     while (curr_node != NULL)
@@ -361,46 +361,11 @@ static ssize_t device_write(struct file *_file, const char __user *buffer, size_
     return buff_length;
 }
 
-void free_slot(slot_t *slot)
-{
-    struct Node *curr_node = slot->channels->head;
-    struct Node *prev_node = NULL;
-    while (curr_node != NULL)
-    {
-        if (prev_node != NULL)
-        {
-            kfree(prev_node->value);
-            kfree(prev_node);
-        }
-        prev_node = curr_node;
-        curr_node = curr_node->next;
-    }
-    kfree(slot);
-}
-void free_slot_lst(LinkedList_t *slot_lst)
-{
-    struct Node *curr_node = slot_lst->head;
-    struct Node *prev_node = NULL;
-    while (curr_node != NULL)
-    {
-        if (prev_node != NULL)
-        {
-            free_slot(prev_node->value);
-            kfree(prev_node);
-        }
-        prev_node = curr_node;
-        curr_node = curr_node->next;
-    }
-}
-
 static int device_release(struct inode *_inode, struct file *_file)
 {
     unsigned long flags;
     // printk(KERN_DEBUG "MINOR DEVICE RELEASE.\n minor is: %d", iminor(_inode));
     spin_lock_irqsave(&device_info.lock, flags);
-    // free memory
-    // _file->private_data = NULL;
-    // free_slot_lst(global_slots_lst);
     // ready for our next caller
     --dev_open_flag;
     spin_unlock_irqrestore(&device_info.lock, flags);
@@ -438,9 +403,62 @@ static int __init simple_init(void)
     return SUCCESS;
 }
 
+void free_channel(channel_t *channel)
+{
+    struct Node *curr_node, *prev_node;
+    curr_node = channel->message->head;
+    prev_node = NULL;
+    while (curr_node != NULL)
+    {
+        if (prev_node != NULL)
+        {
+            kfree((char *)prev_node->value);
+            kfree(prev_node);
+        }
+        prev_node = curr_node;
+        curr_node = curr_node->next;
+    }
+    kfree(channel);
+}
+void free_slot(slot_t *slot)
+{
+    struct Node *curr_node, *prev_node;
+    curr_node = slot->channels->head;
+    prev_node = NULL;
+    while (curr_node != NULL)
+    {
+        if (prev_node != NULL)
+        {
+            free_channel((channel_t *)prev_node->value);
+            kfree(prev_node);
+        }
+        prev_node = curr_node;
+        curr_node = curr_node->next;
+    }
+    kfree(slot);
+}
+void free_slot_lst(LinkedList_t *slot_lst)
+{
+    struct Node *curr_node, *prev_node;
+    curr_node = slot_lst->head;
+    prev_node = NULL;
+    while (curr_node != NULL)
+    {
+        if (prev_node != NULL)
+        {
+            free_slot((slot_t *)prev_node->value);
+            kfree(prev_node);
+        }
+        prev_node = curr_node;
+        curr_node = curr_node->next;
+    }
+}
+
 static void __exit simple_cleanup(void)
 {
-    // free all memory
+    // free memory
+    // free_slot_lst(global_slots_lst);
+
     unregister_chrdev(MAJOR_NUM, DEVICE_RANGE_NAME);
 }
 
