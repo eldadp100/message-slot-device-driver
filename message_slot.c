@@ -254,6 +254,7 @@ static long device_ioctal(struct file *_file, unsigned int ioctl_command_id, uns
 {
 
     slot_t *minor_slot;
+    channel_t *channel;
     int *minor_number_ptr, minor_number;
     minor_number_ptr = (int *)(_file->private_data);
     minor_number = *minor_number_ptr;
@@ -293,7 +294,7 @@ static ssize_t device_read(struct file *_file, char __user *buffer, size_t buff_
 {
     char *msg;
     int *minor_number_ptr, minor_number, i;
-    int total_msg_size = 0, num_bytes_to_read;
+    int total_msg_size = 0;
     minor_number_ptr = (int *)(_file->private_data);
     minor_number = *minor_number_ptr;
 
