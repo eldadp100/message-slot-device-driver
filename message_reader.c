@@ -9,6 +9,8 @@
 #include <sys/ioctl.h>
 #include <string.h>
 
+#define BUFF_SIZE 128
+
 /*
     argv[1] = device path
     argv[2] = channel id
@@ -17,33 +19,36 @@
 int main(int argc, char **argv)
 {
     int file_desc;
-    int ret_val, ret;
-    int buff_size = 20;
-    char msg[buff_size];
-    memset(msg, 0, buff_size);
+    int ret_val;
+    char msg[BUFF_SIZE];
+    memset(msg, 0, BUFF_SIZE);
 
     file_desc = open(argv[1], O_RDWR);
     if (file_desc < 0)
     {
-        perror("can't open device\n the error message:");
-        return ERROR;
+        perror("CAN'T OPEN DEVICE: ");
+        return 1;
     }
 
-    ret_val = ioctl(file_desc, IOCTL_SET_CAHNNEL_IDX, atoi(argv[2]));
-    ret_val = buff_size;
-    while (ret_val == buff_size)
+    ret_val = ioctl(file_desc, MSG_SLOT_CHANNEL, atoi(argv[2]));
+    if (ret_val == -1)
     {
-        ret_val = read(file_desc, msg, buff_size);
-        if (ret_val == -ERROR)
-            return ERROR;
-        ret = write(STDOUT_FILENO, msg, buff_size);
-        if (ret != buff_size)
-            return ERROR;
-        memset(msg, 0, buff_size);
-        // printf("ret=%d, buff=%d\n", ret_val, buff_size);
+        perror("IOCTL TO DEVICE FAILED: ");
+        return 1;
+    }
+    ret_val = read(file_desc, msg, BUFF_SIZE);
+    if (ret_val == -1)
+    {
+        perror("READ FROM DEVICE FAILED: ");
+        return 1;
+    }
+    ret_val = write(STDOUT_FILENO, msg, ret_val);
+    if (ret_val == 0)
+    {
+        perror("WRITE TO STDOUT FAILED: ");
+        return 1;
     }
 
-    // printf("\nmsg: %s\n", msg);
     close(file_desc);
-    return SUCCESS;
+    return 0;
 }

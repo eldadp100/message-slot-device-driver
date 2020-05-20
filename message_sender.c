@@ -24,13 +24,23 @@ int main(int argc, char **argv)
     file_desc = open(argv[1], O_RDWR);
     if (file_desc < 0)
     {
-        perror("can't open device\n the error message:");
-        return ERROR;
+        perror("CAN'T OPEN DEVICE: ");
+        return 1;
     }
 
-    ret_val = ioctl(file_desc, IOCTL_SET_CAHNNEL_IDX, atoi(argv[2]));
-    ret_val = write(file_desc, argv[3], strlen(argv[3]) + 1);
-    printf("message sent succefully\n");
+    ret_val = ioctl(file_desc, MSG_SLOT_CHANNEL, atoi(argv[2]));
+    if (ret_val == -1)
+    {
+        perror("IOCTL TO DEVICE FAILED: ");
+        return 1;
+    } 
+    ret_val = write(file_desc, argv[3], strlen(argv[3]));
+    if (ret_val == -1)
+    {
+        perror("WRITE TO DEVICE FAILED: ");
+        return 1;
+    }
+
     close(file_desc);
-    return SUCCESS;
+    return 0;
 }
