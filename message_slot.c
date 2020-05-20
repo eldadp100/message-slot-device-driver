@@ -273,7 +273,7 @@ static long device_ioctal(struct file *_file, unsigned int ioctl_command_id, uns
 static ssize_t device_read(struct file *_file, char __user *buffer, size_t buff_length, loff_t *offset)
 {
     char *msg;
-    int *minor_number_ptr, minor_number, i;
+    int *minor_number_ptr, minor_number, i, ret;
     int total_msg_size = 0;
     minor_number_ptr = (int *)(_file->private_data);
     minor_number = *minor_number_ptr;
@@ -291,6 +291,16 @@ static ssize_t device_read(struct file *_file, char __user *buffer, size_t buff_
     if (buff_length < total_msg_size)
     {
         return -ENOSPC;
+    }
+
+    // check that input buffer is legal. promise that the write will be atumic 
+    for (i = 0; i < total_msg_size; i++)
+    {
+        ret = put_user(0, &(buffer[i]));
+        if (ret != 0)
+        {
+            return -EINVAL;
+        }
     }
 
     for (i = 0; i < total_msg_size; i++)
@@ -314,10 +324,13 @@ static ssize_t device_write(struct file *_file, const char __user *buffer, size_
         return -EMSGSIZE;
     }
 
-
     for (i = 0; i < buff_length; i++)
     {
-        get_user(msg[i + *offset], &(buffer[i]));
+        ret = get_user(msg[i + *offset], &(buffer[i]));
+        if (ret != 0)
+        {
+            return -EINVAL;
+        }
     }
 
     ret = update_message(global_slots_lst, minor_number, msg, buff_length);
