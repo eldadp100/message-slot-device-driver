@@ -104,19 +104,6 @@ int exist_in_lst(LinkedList_t *lst, int key)
     return 1;
 }
 
-void print_linked_list(LinkedList_t *lst)
-{
-    struct Node *curr_node;
-    // printk(KERN_DEBUG "START PRINT LIST\n");
-    // printk(KERN_DEBUG "lst address %lu \n", (unsigned long)lst);
-    curr_node = lst->head;
-    while (curr_node != NULL)
-    {
-        printk(KERN_DEBUG "%d, ", curr_node->key);
-        curr_node = curr_node->next;
-    }
-    // printk(KERN_DEBUG "\nSTOP PRINT LIST\n");
-}
 
 /* define lock */
 struct chardev_info
@@ -218,7 +205,6 @@ static int device_open(struct inode *_inode, struct file *_file)
     unsigned int *minor_number;
     unsigned long flags;
     slot_t *minor_slot;
-    // printk(KERN_DEBUG "OPEN INVOKED\n");
     // lock stuff
     spin_lock_irqsave(&device_info.lock, flags);
     if (1 == dev_open_flag)
@@ -245,8 +231,6 @@ static int device_open(struct inode *_inode, struct file *_file)
     ++dev_open_flag;
     spin_unlock_irqrestore(&device_info.lock, flags);
 
-    // printk(KERN_DEBUG "MINOR NUMBER: %d\n", *minor_number);
-    // printk(KERN_DEBUG "OPEN SUCCEED\n");
     return 0;
 }
 
@@ -258,8 +242,6 @@ static long device_ioctal(struct file *_file, unsigned int ioctl_command_id, uns
     int *minor_number_ptr, minor_number;
     minor_number_ptr = (int *)(_file->private_data);
     minor_number = *minor_number_ptr;
-    // printk(KERN_DEBUG "IOCTL INVOKED.\n change channel to: %lu. \nminor is: %d\n", ioctl_param, minor_number);
-    // print_linked_list(global_slots_lst);
 
     if (MSG_SLOT_CHANNEL == ioctl_command_id)
     {
@@ -267,7 +249,6 @@ static long device_ioctal(struct file *_file, unsigned int ioctl_command_id, uns
         {
             return -EINVAL;
         }
-        // printk(KERN_DEBUG "Check if minor slot exists. MINOR = %d", minor_number);
         if (exist_in_lst(global_slots_lst, minor_number) == 0)
         {
             printk(KERN_ERR "ERROR in device ioctal. slot should be initialized.");
@@ -286,7 +267,6 @@ static long device_ioctal(struct file *_file, unsigned int ioctl_command_id, uns
         return -EINVAL;
     }
 
-    // printk(KERN_DEBUG "IOCTL SUCCEEDED\n");
     return 0;
 }
 
@@ -297,9 +277,6 @@ static ssize_t device_read(struct file *_file, char __user *buffer, size_t buff_
     int total_msg_size = 0;
     minor_number_ptr = (int *)(_file->private_data);
     minor_number = *minor_number_ptr;
-
-    // printk(KERN_DEBUG "READ INVOKED.\n minor is: %ul\n", minor_number);
-    // print_linked_list(global_slots_lst);
 
     msg = read_message(global_slots_lst, minor_number, &total_msg_size);
     if (total_msg_size == 0)
@@ -321,7 +298,6 @@ static ssize_t device_read(struct file *_file, char __user *buffer, size_t buff_
         put_user(msg[i + *offset], &(buffer[i]));
     }
 
-    // printk(KERN_DEBUG "READ SUCCED");
     return total_msg_size;
 }
 
@@ -338,8 +314,6 @@ static ssize_t device_write(struct file *_file, const char __user *buffer, size_
         return -EMSGSIZE;
     }
 
-    // printk(KERN_DEBUG "WRITE INVOKED.\n minor is: %ul\n", minor_number);
-    // print_linked_list(global_slots_lst);
 
     for (i = 0; i < buff_length; i++)
     {
@@ -352,7 +326,6 @@ static ssize_t device_write(struct file *_file, const char __user *buffer, size_
         return -EINVAL;
     }
 
-    // printk(KERN_DEBUG "WRITE SUCCED");
     return buff_length;
 }
 
@@ -361,7 +334,6 @@ static int device_release(struct inode *_inode, struct file *_file)
     unsigned long flags;
     kfree(_file->private_data);
     _file->private_data = NULL;
-    // printk(KERN_DEBUG "MINOR DEVICE RELEASE.\n minor is: %d", iminor(_inode));
     spin_lock_irqsave(&device_info.lock, flags);
     // ready for our next caller
     --dev_open_flag;
@@ -402,19 +374,6 @@ static int __init simple_init(void)
 
 void free_channel(channel_t *channel)
 {
-    // struct Node *curr_node, *prev_node;
-    // curr_node = channel->message->head;
-    // prev_node = NULL;
-    // while (curr_node != NULL)
-    // {
-    //     if (prev_node != NULL)
-    //     {
-    //         kfree((char *)prev_node->value);
-    //         kfree(prev_node);
-    //     }
-    //     prev_node = curr_node;
-    //     curr_node = curr_node->next;
-    // }
     kfree(channel);
 }
 
