@@ -277,7 +277,7 @@ static long device_ioctal(struct file *_file, unsigned int ioctl_command_id, uns
         if (exist_in_lst(minor_slot->channels, ioctl_param) == 0)
         {
             channel = create_channel();
-            add_element(minor_slot->channels, channel_number, channel);
+            add_element(minor_slot->channels, ioctl_param, channel);
         }
         minor_slot->current_channel = ioctl_param;
     }
