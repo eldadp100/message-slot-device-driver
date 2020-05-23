@@ -305,7 +305,7 @@ static ssize_t device_read(struct file *_file, char __user *buffer, size_t buff_
 
     for (i = 0; i < total_msg_size; i++)
     {
-        put_user(msg[i + *offset], &(buffer[i]));
+        put_user(msg[i], &(buffer[i]));
     }
 
     return total_msg_size;
@@ -326,7 +326,7 @@ static ssize_t device_write(struct file *_file, const char __user *buffer, size_
 
     for (i = 0; i < buff_length; i++)
     {
-        ret = get_user(msg[i + *offset], &(buffer[i]));
+        ret = get_user(msg[i], &(buffer[i]));
         if (ret != 0)
         {
             return -EINVAL;
