@@ -198,7 +198,6 @@ char *read_message(LinkedList_t *slots_lst, int minor_number, int *out_msg_size)
 static int device_open(struct inode *_inode, struct file *_file)
 {
     unsigned int *minor_number;
-    unsigned long flags;
     slot_t *minor_slot;
 
     // save minor in struct file
@@ -331,7 +330,6 @@ static ssize_t device_write(struct file *_file, const char __user *buffer, size_
 
 static int device_release(struct inode *_inode, struct file *_file)
 {
-    unsigned long flags;
     kfree(_file->private_data);
     _file->private_data = NULL;
     return 0;
