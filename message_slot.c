@@ -19,7 +19,6 @@
 #include <linux/slab.h>
 #include <linux/ioctl.h>
 
-
 MODULE_LICENSE("GPL");
 
 /*Linked List imlemetation*/
@@ -65,7 +64,6 @@ void add_element(LinkedList_t *lst, int key, void *val)
         lst->last->next = node;
         lst->last = node;
     }
-    lst->length += 1;
 }
 
 struct Node *get_node(LinkedList_t *lst, int key)
@@ -106,36 +104,6 @@ int exist_in_lst(LinkedList_t *lst, int key)
     return 1;
 }
 
-void remove_key(LinkedList_t *lst, int key)
-{
-    /*Real implementation
-    if (key == lst->head->key)
-    {
-        lst->head = lst->head->next;
-        if (lst->length == 1)
-            lst->last = NULL;
-    }
-
-    struct Node *curr_node;
-    curr_node = lst->head;
-    while (curr_node->next != NULL)
-    {
-        if (curr_node->next->key == key)
-        {
-            curr_node->next = curr_node->next->next;
-            if (key == lst->last->key)
-                lst->last = curr_node;
-        }
-        curr_node = curr_node->next;
-    }
-    lst->length -= 1;
-    */
-
-    //lazy implemetation that adapts code
-    struct Node *node;
-    node = get_node(lst, key);
-    node->key = NOT_EXIST;
-}
 
 /* define lock */
 struct chardev_info
@@ -238,7 +206,12 @@ static int device_open(struct inode *_inode, struct file *_file)
     unsigned long flags;
     slot_t *minor_slot;
     // lock stuff
-
+    spin_lock_irqsave(&device_info.lock, flags);
+    if (1 == dev_open_flag)
+    {
+        spin_unlock_irqrestore(&device_info.lock, flags);
+        return -EBUSY;
+    }
     // save minor in struct file
     minor_number = (unsigned int *)kmalloc(sizeof(unsigned int), GFP_KERNEL);
     *minor_number = iminor(_inode);
@@ -254,6 +227,9 @@ static int device_open(struct inode *_inode, struct file *_file)
         minor_slot = create_slot();
         add_element(global_slots_lst, *minor_number, minor_slot);
     }
+
+    ++dev_open_flag;
+    spin_unlock_irqrestore(&device_info.lock, flags);
 
     return 0;
 }
@@ -317,7 +293,7 @@ static ssize_t device_read(struct file *_file, char __user *buffer, size_t buff_
         return -ENOSPC;
     }
 
-    // check that input buffer is legal. promise that the write will be atumic
+    // check that input buffer is legal. promise that the write will be atumic 
     for (i = 0; i < total_msg_size; i++)
     {
         ret = put_user(0, &(buffer[i]));
@@ -369,14 +345,10 @@ static ssize_t device_write(struct file *_file, const char __user *buffer, size_
 static int device_release(struct inode *_inode, struct file *_file)
 {
     unsigned long flags;
-    int *minor_number_ptr, minor_number;
-    minor_number_ptr = (int *)(_file->private_data);
-    minor_number = *minor_number_ptr;
-    remove_key(global_slots_lst, minor_number);
     kfree(_file->private_data);
     _file->private_data = NULL;
-    // ready for our next caller
     spin_lock_irqsave(&device_info.lock, flags);
+    // ready for our next caller
     --dev_open_flag;
     spin_unlock_irqrestore(&device_info.lock, flags);
     return 0;
