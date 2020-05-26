@@ -105,14 +105,9 @@ int exist_in_lst(LinkedList_t *lst, int key)
 }
 
 
-/* define lock */
-struct chardev_info
-{
-    spinlock_t lock;
-};
+
 // used to prevent concurent access into the same device
 static int dev_open_flag = 0;
-static struct chardev_info device_info;
 
 /* define slots lst */
 static LinkedList_t *global_slots_lst = NULL;
@@ -205,13 +200,7 @@ static int device_open(struct inode *_inode, struct file *_file)
     unsigned int *minor_number;
     unsigned long flags;
     slot_t *minor_slot;
-    // lock stuff
-    spin_lock_irqsave(&device_info.lock, flags);
-    if (1 == dev_open_flag)
-    {
-        spin_unlock_irqrestore(&device_info.lock, flags);
-        return -EBUSY;
-    }
+
     // save minor in struct file
     minor_number = (unsigned int *)kmalloc(sizeof(unsigned int), GFP_KERNEL);
     *minor_number = iminor(_inode);
@@ -229,8 +218,6 @@ static int device_open(struct inode *_inode, struct file *_file)
     }
 
     ++dev_open_flag;
-    spin_unlock_irqrestore(&device_info.lock, flags);
-
     return 0;
 }
 
@@ -347,10 +334,6 @@ static int device_release(struct inode *_inode, struct file *_file)
     unsigned long flags;
     kfree(_file->private_data);
     _file->private_data = NULL;
-    spin_lock_irqsave(&device_info.lock, flags);
-    // ready for our next caller
-    --dev_open_flag;
-    spin_unlock_irqrestore(&device_info.lock, flags);
     return 0;
 }
 
@@ -367,13 +350,7 @@ struct file_operations Fops = {
 static int __init simple_init(void)
 {
     int rc = -1;
-    // init dev struct
-    memset(&device_info, 0, sizeof(struct chardev_info));
-    spin_lock_init(&device_info.lock);
-
     rc = register_chrdev(MAJOR_NUM, DEVICE_RANGE_NAME, &Fops);
-
-    // Negative values signify an error
     if (rc < 0)
     {
         printk(KERN_ALERT "%s registraion failed for  %d\n",
